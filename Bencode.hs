@@ -1,46 +1,78 @@
-module Bencode ( BData(..)
+module Bencode ( BValue(..)
                , readBen
                , writeBen
+               , getDict
+               , getList
+               , getString
+               , getInt
                ) where
 
 import           Control.Applicative
 import qualified Data.Map as M
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as B
 import qualified Data.Attoparsec.ByteString.Char8 as P
 
-data BData = BDict (M.Map B.ByteString BData)
-           | BList [BData]
-           | BString B.ByteString
-           | BInteger Integer
+data BValue = BDict (M.Map B.ByteString BValue)
+            | BList [BValue]
+            | BString B.ByteString
+            | BInt Integer
+            deriving Show
 
-writeBen :: BData -> B.ByteString
-writeBen BDict    dict  = surround 'd' $ concatMap (\(x, y) -> append (writeFromString x) (writeBen y)) $ toList dict
-writeBen BList    list  = surround 'l' $ concatMap writeBen list
-writeBen BString  bytes = writeFromString bytes
-writeBen BInteger n     = surround 'i' $ pack $ show n
+getDict :: BValue -> Maybe (M.Map B.ByteString BValue)
+getDict (BDict v) = Just v
+getDict _ = Nothing
 
-writeFromString = (append $ B.pack $ b.length bytes) . cons ':'
+getList :: BValue -> Maybe [BValue]
+getList (BList v) = Just v
+getList _ = Nothing
+             
+getString :: BValue -> Maybe B.ByteString
+getString (BString v) = Just v
+getString _ = Nothing
 
-surround :: Char -> Char -> ByteString -> ByteString
-surround = (`snoc` e) . cons
+getInt :: BValue -> Maybe Integer
+getInt (BInt v) = Just v
+getInt _ = Nothing
 
-readBen :: B.ByteString -> Maybe BData
-readBen = undefined
+writeBen :: BValue -> B.ByteString
+writeBen (BDict   dict ) = surround 'd' . B.concat . map writePair $ M.toList dict
+writeBen (BList   list ) = surround 'l' . B.concat $ map writeBen list
+writeBen (BString bytes) = writeBytes bytes
+writeBen (BInt    n    ) = surround 'i' . B.pack $ show n
 
-parseBData =  parseBDict
-          <|> parseBList
-          <|> parseBString
-          <|> parseBInteger
+writePair :: (B.ByteString, BValue) -> B.ByteString
+writePair (key, value) = B.append (writeBytes key) (writeBen value)
+
+writeBytes :: B.ByteString -> B.ByteString
+writeBytes bytes = B.append (B.pack . show $ B.length bytes) $ B.cons ':' bytes
+
+surround :: Char -> B.ByteString -> B.ByteString
+surround start = B.cons start . (`B.snoc` 'e')
+
+readBen :: B.ByteString -> Maybe BValue
+readBen bytes = case P.parseOnly parseBValue bytes
+                of   Right bval -> Just bval
+                     Left  _    -> Nothing
+
+parseBValue =  parseBDict
+           <|> parseBList
+           <|> parseBString
+           <|> parseBInt
 
 parseBDict = fmap (BDict . M.fromList) $
-    P.char 'l' *> P.many1 (liftA2 (,) parseBString' parseBData) <* P.char 'e'
+    P.char 'd' *> P.many1 (liftA2 (,) parseBString' parseBValue) <* P.char 'e'
 
-parseBList = fmap BList $
-    P.char 'l' *> P.many1 parseBData <* P.char 'e'
+parseBList = do
+    P.char 'l'
+    things <- P.many1 parseBValue
+    P.char 'e'
+    return (BList things)
+-- parseBList = fmap BList $
+--     P.char 'l' *> P.many1 parseBValue <* P.char 'e'
 
 parseBString = BString <$> parseBString'
 
 parseBString' = (P.decimal <* P.char ':') >>= P.take
 
-parseBInteger = fmap BInteger $
+parseBInt = fmap BInt $
     P.char 'i' *> P.decimal <* P.char 'e'
