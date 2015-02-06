@@ -4,6 +4,10 @@ module Curtis.Bencode
     , writeBen
     , hashify
     , bookup
+    , getString
+    , getInt
+    , getList
+    , getDict
     ) where
 
 import           Control.Monad
@@ -65,3 +69,21 @@ hashify = liftM (hash . B.unpack) . (
 -- TODO improve (with attoparsec)
 bookup :: String -> [(C.ByteString, a)] -> Maybe a
 bookup skey = lookup (C.pack skey)
+
+-- Getters for extracting info from bvalues
+
+getString :: BValue -> Maybe C.ByteString
+getString (BString v) = Just v
+getString _ = Nothing
+
+getInt :: BValue -> Maybe Integer
+getInt (BInt v) = Just v
+getInt _ = Nothing
+
+getList :: BValue -> Maybe [BValue]
+getList (BList v) = Just v
+getList _ = Nothing
+
+getDict :: BValue -> Maybe [(C.ByteString, BValue)]
+getDict (BDict v) = Just v
+getDict _ = Nothing

@@ -46,22 +46,3 @@ torrentize bytes = do
                    , pieces    = pieces'
                    , infoHash  = infoHash'
                    }
-
-
--- Getters for parsing de-bencoded torrent files
-
-getString :: BValue -> Maybe C.ByteString
-getString (BString v) = Just v
-getString _ = Nothing
-
-getInt :: BValue -> Maybe Integer
-getInt (BInt v) = Just v
-getInt _ = Nothing
-
-getList :: BValue -> Maybe [BValue]
-getList (BList v) = Just v
-getList _ = Nothing
-
-getDict :: BValue -> Maybe [(C.ByteString, BValue)]
-getDict (BDict v) = Just v
-getDict _ = Nothing
