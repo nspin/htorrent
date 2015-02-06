@@ -1,14 +1,13 @@
 module Curtis.Track.THP
-    ( THPrq
-    , TStatus
-    , TEvent
-    , TResponse
+    ( THPrq(..)
+    , TStatus(..)
+    , TEvent(..)
+    , TResponse(..)
     , getTHPResp
     ) where
 
 import           Curtis.Bencode
 import           Curtis.Internal
-import           Curtis.Track.Torrent
 import           Control.Monad
 import           Data.Bits
 import           Data.Char
@@ -20,8 +19,18 @@ import           Data.Maybe
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as C
+import           Data.Attoparsec.ByteString
 import           Network.Wreq
 import           Control.Lens
+
+getTHPResp :: THPrq -> IO (Maybe (Either String TResponse))
+getTHPResp = fmap ( ( marse parseBen
+                    . L.toStrict
+                    . (^. responseBody)
+                    ) >=> parseTResp
+                  )
+           . get
+           . mkURL
 
 data THPrq = THPrq { tracker    :: String
                    , info_hash  :: Word160
@@ -62,8 +71,8 @@ mkURL THPrq { tracker    = tracker'
             , trackerid  = trackerid'
             }
   = tracker' ++ "?" ++ intercalate "&"
-        ( [ "info_hash="  ++ encode160 info_hash'
-          , "peer_id="    ++ encode160 peer_id'
+        ( [ "info_hash="  ++ urify160 info_hash'
+          , "peer_id="    ++ urify160 peer_id'
           , "port="       ++ show pport'
           , "uploaded="   ++ show uploaded'
           , "downloaded=" ++ show downloaded'
@@ -74,7 +83,7 @@ mkURL THPrq { tracker    = tracker'
        ++ catMaybes [ fmap (("event=" ++ ) . encodeEvent) event'
                     , fmap ("ip="        ++) ip'
                     , fmap (("numwant="   ++) . show) numwant'
-                    , fmap (("key="       ++) . encode160) key'
+                    , fmap (("key="       ++) . urify160) key'
                     , fmap ("trackerid=" ++) trackerid'
                     ]
         )
@@ -119,7 +128,7 @@ parseTResp ben = do
 
 parseUncompressedPeers :: BValue -> Maybe (Either [(Word160, String, Integer)] [(String, Integer)])
 parseUncompressedPeers = fmap Left . (getList >=> mapM (getDict >=> \d ->
-    do peer_id' <- bookup "peer_id" d >>= getString >>= read160
+    do peer_id' <- bookup "peer_id" d >>= getString >>= marse parse160
        ip'      <- bookup "ip"      d >>= getString
        port'    <- bookup "port"    d >>= getInt
        return (peer_id', C.unpack ip', port')))
@@ -129,6 +138,3 @@ parseCompressedPeers = fmap (Right . map aux . chunksOf 6 . B.unpack) . getStrin
   where aux [a, b, c, d, e, f] = ( intercalate "." $ map show [a, b, c, d]
                                  , shiftL 8 (fromIntegral e) .&. fromIntegral f
                                  )
-
-getTHPResp :: THPrq -> IO (Maybe (Either String TResponse))
-getTHPResp = fmap ((readBen . L.toStrict . (^. responseBody)) >=> parseTResp) . get . mkURL

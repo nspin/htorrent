@@ -2,9 +2,18 @@ module Test where
 
 import           Curtis.Track.Torrent
 import           Curtis.Track.THP
+import           Curtis.Bencode
+import           Curtis.Internal
+
 import qualified Data.ByteString as B
 import           Data.Digest.SHA1
 import           Network.Wreq
+
+test :: IO ()
+test = do
+    file <- B.readFile "/home/nick/stuff/slackware-14.1-install-dvd.torrent"
+    print $ marse parseBen file
+    -- print $ getMeta $ file
 
 -- initPeerId = Word160 52395 54325 54321 64352 6543
 -- initPort = 7000
