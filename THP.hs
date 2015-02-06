@@ -3,6 +3,8 @@ module THP ( THP_Req(..)
            , contact
            ) where
 
+import  Data.ByteString.Base16
+import  Data.List
 import           Data.Bits
 import           Data.Char
 import           Data.Word
@@ -35,13 +37,15 @@ contact :: String -> THP_Req -> IO (Maybe String)
 contact base thp = case req of
     Nothing -> return Nothing
     Just req -> do
+        print $ C.unpack $ encode $ C.pack $ from160 info
         print uri
         resp <- simpleHTTP req
         return $ case resp of
             Left _ -> Nothing
             Right (Response {rspBody = body}) -> Just body
   where
-    uri = base ++ '?' : urlEncodeVars (queries thp)
+    THP_Req {info_hash = info} = thp
+    uri = base ++ '?' : intercalate "&" [ x ++ "=" ++ y | (x, y) <- queries thp ]
     req = do
         theuri <- parseURI uri
         return Request { rqURI     = theuri
@@ -59,8 +63,8 @@ queries THP_Req { info_hash  = info_hash'
                 , left       = left'
                 , event      = event'
                 }
-        = [ ("info_hash"  , from160 info_hash')
-          , ("peer_id"    , from160 peer_id')
+        = [ ("info_hash"  , urlEncode $ from160 info_hash')
+          , ("peer_id"    , urlEncode $ from160 peer_id')
           , ("port"       , show port')
           , ("uploaded"   , show uploaded')
           , ("downloaded" , show downloaded')

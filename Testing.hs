@@ -12,7 +12,10 @@ test = do
     file <- ifile
     print $ torrentize file 
 
-ifile = C.readFile "/home/nick/stuff/slackware-14.1-install-dvd.torrent"
+ifile = C.readFile
+    "/home/nick/stuff/[kickass.so]big.hero.6.2014.1080p.brrip.x264.yify.torrent"
+    -- "/home/nick/stuff/[kickass.so]nicki.minaj.pinkprint.deluxe.mp3.2014.torrent"
+    -- "/home/nick/stuff/slackware-14.1-install-dvd.torrent"
 -- thefile = return $ C.pack $ "d8:announcekk
 
 test2 :: IO()
@@ -24,7 +27,7 @@ test2 = do
                 } = torrentize file
         Right ints = stuff
         thp = THP_Req { info_hash  = inf
-                      , peer_id    = Word160 32 32 31 43 23
+                      , peer_id    = Word160 23443 4321 423121 6342 890
                       , rport      = 542
                       , uploaded   = 0
                       , downloaded = 0
