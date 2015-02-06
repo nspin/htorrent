@@ -7,7 +7,7 @@ module Curtis.Track.THP
     ) where
 
 import           Curtis.Bencode
-import           Curtis.Internal
+import           Curtis.Common
 import           Control.Monad
 import           Data.Bits
 import           Data.Char
@@ -33,8 +33,8 @@ getTHPResp = fmap ( ( marse parseBen
            . mkURL
 
 data THPrq = THPrq { tracker    :: String
-                   , info_hash  :: Word160
-                   , peer_id    :: Word160
+                   , info_hash  :: B.ByteString
+                   , peer_id    :: B.ByteString
                    , pport      :: Word
                    , status     :: TStatus
                    , compact    :: Bool
@@ -42,7 +42,7 @@ data THPrq = THPrq { tracker    :: String
                    , event      :: Maybe TEvent
                    , ip         :: Maybe String
                    , numwant    :: Maybe Word
-                   , key        :: Maybe Word160
+                   , key        :: Maybe B.ByteString
                    , trackerid  :: Maybe String
                    }
 
@@ -71,8 +71,8 @@ mkURL THPrq { tracker    = tracker'
             , trackerid  = trackerid'
             }
   = tracker' ++ "?" ++ intercalate "&"
-        ( [ "info_hash="  ++ urify160 info_hash'
-          , "peer_id="    ++ urify160 peer_id'
+        ( [ "info_hash="  ++ urifyBS info_hash'
+          , "peer_id="    ++ urifyBS peer_id'
           , "port="       ++ show pport'
           , "uploaded="   ++ show uploaded'
           , "downloaded=" ++ show downloaded'
@@ -83,7 +83,7 @@ mkURL THPrq { tracker    = tracker'
        ++ catMaybes [ fmap (("event=" ++ ) . encodeEvent) event'
                     , fmap ("ip="        ++) ip'
                     , fmap (("numwant="   ++) . show) numwant'
-                    , fmap (("key="       ++) . urify160) key'
+                    , fmap (("key="       ++) . urifyBS) key'
                     , fmap ("trackerid=" ++) trackerid'
                     ]
         )
@@ -99,8 +99,8 @@ data TResponse = TResponse { warning_response :: Maybe String
                            , tracker_id       :: Maybe String
                            , complete         :: Integer
                            , incomplete       :: Integer
-                           , peers            :: Either [(Word160, String, Integer)]
-                                                        [(         String, Integer)]
+                           , peers            :: Either [(B.ByteString, String, Integer)]
+                                                        [(              String, Integer)]
                            }
                  deriving Show
 
@@ -126,15 +126,24 @@ parseTResp ben = do
                 , peers = peers'
                 }
 
-parseUncompressedPeers :: BValue -> Maybe (Either [(Word160, String, Integer)] [(String, Integer)])
+parseUncompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
 parseUncompressedPeers = fmap Left . (getList >=> mapM (getDict >=> \d ->
-    do peer_id' <- bookup "peer_id" d >>= getString >>= marse parse160
+    do peer_id' <- bookup "peer_id" d >>= getString
        ip'      <- bookup "ip"      d >>= getString
        port'    <- bookup "port"    d >>= getInt
        return (peer_id', C.unpack ip', port')))
 
-parseCompressedPeers :: BValue -> Maybe (Either [(Word160, String, Integer)] [(String, Integer)])
+parseCompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
 parseCompressedPeers = fmap (Right . map aux . chunksOf 6 . B.unpack) . getString
   where aux [a, b, c, d, e, f] = ( intercalate "." $ map show [a, b, c, d]
                                  , shiftL 8 (fromIntegral e) .&. fromIntegral f
                                  )
+
+urifyBS :: B.ByteString -> String
+urifyBS = concatMap urify8 . B.unpack
+
+urify8 :: Word8 -> String
+urify8 byte = ['%', toHexHalf $ shiftR byte 4, toHexHalf $ byte .&. 15]
+
+toHexHalf :: Word8 -> Char
+toHexHalf = genericIndex "0123456789ABCDEF"

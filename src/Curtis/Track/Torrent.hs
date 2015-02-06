@@ -9,7 +9,7 @@ module Curtis.Track.Torrent
     ) where
 
 import           Curtis.Bencode
-import           Curtis.Internal
+import           Curtis.Common
 
 import           Control.Monad
 import           Control.Applicative
@@ -17,12 +17,11 @@ import           Control.Applicative
 import           Data.Word
 import           Data.Word8
 import           Data.Maybe
-import           Data.Digest.SHA1
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-import           Data.Attoparsec.ByteString.Char8
+import           Data.Attoparsec.ByteString.Char8 as P
 
-data MetaInfo = MetaInfo Torrent Word160 deriving Show
+data MetaInfo = MetaInfo Torrent B.ByteString deriving Show
 
 -- All of the information in a torren file that curtis is,
 -- at this point, capable of caring about. Curtis will grow,
@@ -32,14 +31,14 @@ data Torrent = Torrent
     , announce_list :: Maybe [String]
     , comment       :: Maybe String
     , created_by    :: Maybe String
-    , creation_date :: Maybe Word
+    , creation_date :: Maybe Integer
     , infoStuff     :: InfoStuff
     }
   deriving Show
 
 data InfoStuff = InfoStuff
     { piece_length :: Integer
-    , pieces       :: [Word160]
+    , pieces       :: [B.ByteString]
     , private      :: Bool
     , fileStuff    :: Either OneFile ManyFiles
     }
@@ -48,7 +47,7 @@ data InfoStuff = InfoStuff
 data OneFile = OneFile
     { nameO   :: String
     , lengthO :: Integer
-    , md5sumO :: Maybe B.ByteString -- (Word64, Word64)
+    , md5sumO :: Maybe B.ByteString
     }
   deriving Show
 
@@ -91,8 +90,8 @@ getInfo :: BValue -> Maybe InfoStuff
 getInfo = getDict >=> \dict -> do
     piece_length' <- bookup "piece length" dict >>= getInt
     pieces' <- bookup "pieces" dict
-            >>= getString
-            >>= get160s
+          >>= getString
+          >>= (maybeResult . (`feed` B.empty) . parse (many1 $ P.take 20))
     let one = fmap Left $ do
                 name' <- bookup "name" dict >>= getString
                 length' <- bookup "length" dict >>= getInt

@@ -10,26 +10,25 @@ module Curtis.Bencode
     , hashify
     ) where
 
+import           Curtis.Common
 import           Control.Monad
 import           Control.Applicative
-
+import           Crypto.Hash.SHA1
 import           Data.List
-import           Data.Digest.SHA1
-
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-import qualified Data.Attoparsec.ByteString.Char8 as P
+import           Data.Attoparsec.ByteString.Char8 as P
 
 -- A bencoded value
-data BValue = BString C.ByteString
+data BValue = BString B.ByteString
             | BInt Integer
             | BList [BValue]
-            | BDict [(C.ByteString, BValue)]
+            | BDict [(B.ByteString, BValue)]
             deriving Show
 
 -- Four getters for extracting info from bvalues
 
-getString :: BValue -> Maybe C.ByteString
+getString :: BValue -> Maybe B.ByteString
 getString (BString v) = Just v
 getString _ = Nothing
 
@@ -41,7 +40,7 @@ getList :: BValue -> Maybe [BValue]
 getList (BList v) = Just v
 getList _ = Nothing
 
-getDict :: BValue -> Maybe [(C.ByteString, BValue)]
+getDict :: BValue -> Maybe [(B.ByteString, BValue)]
 getDict (BDict v) = Just v
 getDict _ = Nothing
 
@@ -51,13 +50,13 @@ bookup skey = lookup (C.pack skey)
 
 -- De-bencodes a bytestring
 parseBen =  BString <$> parseString
-        <|> BInt    <$> parseMid 'i' P.decimal -- make signed
-        <|> BList   <$> parseMid 'l' (P.many1 parseBen)
-        <|> BDict   <$> parseMid 'd' (P.many1 $ liftA2 (,) parseString parseBen)
+        <|> BInt    <$> parseMid 'i' decimal -- make signed
+        <|> BList   <$> parseMid 'l' (many1 parseBen)
+        <|> BDict   <$> parseMid 'd' (many1 $ liftA2 (,) parseString parseBen)
 
-parseMid start middle = P.char start *> middle <* P.char 'e'
+parseMid start middle = char start *> middle <* char 'e'
 
-parseString = P.decimal <* P.char ':' >>= P.take
+parseString = decimal <* char ':' >>= P.take
 
 -- Bencodes a BValue into a wing
 bencode :: BValue -> C.ByteString
@@ -76,11 +75,10 @@ writeBytes :: C.ByteString -> C.ByteString
 writeBytes bytes = (C.pack . show $ C.length bytes) `C.append` C.cons ':' bytes
 
 -- Extract raw bytestring of info key (if it exists), for use in calculating infohash
-hashify :: C.ByteString -> Maybe Word160
-hashify = liftM (hash . B.unpack) . (
-          ( P.maybeResult
-          . P.parse ( parseMid 'd'
-                    $ P.many1
-                    $ liftA2 (,) parseString (fst <$> P.match parseBen)
-                    )
-          ) >=> bookup "info")
+hashify :: B.ByteString -> Maybe B.ByteString
+hashify = liftM hash . (
+          marse ( parseMid 'd'
+                $ many1
+                $ liftA2 (,) parseString (fst <$> match parseBen)
+                )
+          >=> bookup "info")
