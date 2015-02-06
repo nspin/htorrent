@@ -1,7 +1,7 @@
-module THP where
+module Curtis.Track.THP where
 
-import           Torrent
-import           Bencode
+import           Curtis Bencode
+import           Curtis.Track.Torrent
 
 import           Control.Monad
 

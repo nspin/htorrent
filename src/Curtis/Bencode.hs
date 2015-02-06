@@ -1,9 +1,10 @@
-module Bencode ( BValue(..)
-               , readBen
-               , writeBen
-               , hashify
-               , bookup
-               ) where
+module Curtis.Bencode
+    ( BValue(..)
+    , readBen
+    , writeBen
+    , hashify
+    , bookup
+    ) where
 
 import           Control.Monad
 import           Control.Applicative

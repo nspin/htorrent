@@ -1,8 +1,9 @@
-module Torrent ( Torrent(..)
-               , torrentize
-               ) where
+module Curtis.Track.Torrent
+    ( Torrent(..)
+    , torrentize
+    ) where
 
-import           Bencode
+import           Curtis.Bencode
 
 import           Control.Monad
 
