@@ -2,7 +2,6 @@ module Torrent ( Torrent(..)
                , torrentize
                ) where
 
-import           Wing
 import           Bencode
 
 import           Control.Monad
@@ -10,12 +9,13 @@ import           Control.Monad
 import           Data.Word
 import           Data.Word8
 import           Data.Digest.SHA1
-import qualified Data.ByteString as B2
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as C
 
-data Torrent = Torrent { announce  :: Wing
+data Torrent = Torrent { announce  :: C.ByteString
                        , pieceLen  :: Int
                        , fileStuff :: Either Int [Int]
-                       , pieces    :: Wing
+                       , pieces    :: C.ByteString
                        , infoHash  :: Word160
                        }
                deriving Show
@@ -24,17 +24,17 @@ torrentize :: B.ByteString -> Maybe Torrent
 torrentize bytes = do
 
     dict      <- readBen bytes              >>= getDict
-    announce' <- lookup "announce"     dict >>= getString
-    info      <- lookup "info"         dict >>= getDict
-    pieces'   <- lookup "pieces"       info >>= getString
-    pieceLen' <- lookup "piece length" info >>= getInt
-    infoHash' <- liftM hash $ rawInfo bytes
+    announce' <- bookup "announce"     dict >>= getString
+    info      <- bookup "info"         dict >>= getDict
+    pieces'   <- bookup "pieces"       info >>= getString
+    pieceLen' <- bookup "piece length" info >>= getInt
 
-    let one  = liftM Left  $ lookup "length" info >>= getInt
-        many = liftM Right $ lookup "files"  info >>= getList
-                 >>= mapM (getDict >=> lookup "length" >=> getInt)
+    let one  = liftM Left  $ bookup "length" info >>= getInt
+        many = liftM Right $ bookup "files"  info >>= getList
+                 >>= mapM (getDict >=> bookup "length" >=> getInt)
 
     fileStuff' <- mplus one many
+    infoHash'  <- hashify bytes
 
     return Torrent { announce  = announce'
                    , pieceLen  = pieceLen'
@@ -43,9 +43,10 @@ torrentize bytes = do
                    , infoHash  = infoHash'
                    }
 
+
 -- Getters for parsing de-bencoded torrent files
 
-getString :: BValue -> Maybe String
+getString :: BValue -> Maybe C.ByteString
 getString (BString v) = Just v
 getString _ = Nothing
 
@@ -57,6 +58,6 @@ getList :: BValue -> Maybe [BValue]
 getList (BList v) = Just v
 getList _ = Nothing
 
-getDict :: BValue -> Maybe [(String, BValue)]
+getDict :: BValue -> Maybe [(C.ByteString, BValue)]
 getDict (BDict v) = Just v
 getDict _ = Nothing

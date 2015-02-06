@@ -8,8 +8,8 @@ import           Data.Char
 import           Data.Word
 import           Data.Digest.SHA1
 
-import qualified Data.ByteString.Char8 as B
-import qualified Data.ByteString as B2
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as C
 
 import           Network.HTTP.Base
 import           Network.HTTP
@@ -35,6 +35,7 @@ contact :: String -> THP_Req -> IO (Maybe String)
 contact base thp = case req of
     Nothing -> return Nothing
     Just req -> do
+        print uri
         resp <- simpleHTTP req
         return $ case resp of
             Left _ -> Nothing
@@ -65,18 +66,16 @@ queries THP_Req { info_hash  = info_hash'
           , ("downloaded" , show downloaded')
           , ("left"       , show left')
           ] ++ case event'
-               of   Just e  -> [("event", shw e)]
+               of   Just e  -> [("event", show e)]
                     Nothing -> []
 
 from160 :: Word160 -> String
-from160 (Word160 a b c d e) = show
-                            . B.pack
-                            . map fromIntegral
+from160 (Word160 a b c d e) = map (chr . fromIntegral)
                             $ concatMap chunkify [a, b, c, d, e]
 
-chunkify :: Word32 -> [Word32]
-chunkify x = [ shiftR x 24
-             , shiftR x 16
-             , shiftR x  8
-             , x
-             ]
+chunkify :: Word32 -> [Word8]
+chunkify x = map fromIntegral [ shiftR x 24
+                             , shiftR x 16
+                             , shiftR x  8
+                             , x
+                             ]
