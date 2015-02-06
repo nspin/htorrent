@@ -17,7 +17,7 @@ import qualified Data.Attoparsec.ByteString.Char8 as P
 
 -- A bencoded value
 data BValue = BString C.ByteString
-            | BInt Int
+            | BInt Integer
             | BList [BValue]
             | BDict [(C.ByteString, BValue)]
             deriving Show
@@ -64,5 +64,3 @@ hashify = liftM (hash . B.unpack) . (
 -- TODO improve (with attoparsec)
 bookup :: String -> [(C.ByteString, a)] -> Maybe a
 bookup skey = lookup (C.pack skey)
-    
-    

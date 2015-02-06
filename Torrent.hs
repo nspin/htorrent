@@ -12,9 +12,12 @@ import           Data.Digest.SHA1
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 
-data Torrent = Torrent { announce  :: C.ByteString
-                       , pieceLen  :: Int
-                       , fileStuff :: Either Int [Int]
+-- All of the information in a torren file that curtis is,
+-- at this point, capable of caring about. Curtis will grow,
+-- though, so this will expand at some point.
+data Torrent = Torrent { announce  :: String
+                       , pieceLen  :: Integer
+                       , fileStuff :: Either Integer [Integer]
                        , pieces    :: C.ByteString
                        , infoHash  :: Word160
                        }
@@ -24,7 +27,7 @@ torrentize :: B.ByteString -> Maybe Torrent
 torrentize bytes = do
 
     dict      <- readBen bytes              >>= getDict
-    announce' <- bookup "announce"     dict >>= getString
+    announce' <- fmap C.unpack (bookup "announce" dict >>= getString)
     info      <- bookup "info"         dict >>= getDict
     pieces'   <- bookup "pieces"       info >>= getString
     pieceLen' <- bookup "piece length" info >>= getInt
@@ -50,7 +53,7 @@ getString :: BValue -> Maybe C.ByteString
 getString (BString v) = Just v
 getString _ = Nothing
 
-getInt :: BValue -> Maybe Int
+getInt :: BValue -> Maybe Integer
 getInt (BInt v) = Just v
 getInt _ = Nothing
 
