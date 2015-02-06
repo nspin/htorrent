@@ -1,31 +1,17 @@
 module Curtis.Track.THP where
 
-import           Curtis Bencode
+import           Curtis.Bencode
 import           Curtis.Track.Torrent
-
 import           Control.Monad
-
 import           Data.Bits
 import           Data.Char
 import           Data.Word
 import           Data.Digest.SHA1
 import           Data.List
 import           Data.Maybe
-
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-
 import           Network.Wreq
-
-test :: IO ()
-test = do
-    file <- B.readFile "/home/nick/stuff/slackware-14.1-install-dvd.torrent"
-    let Just t = torrentize file
-        url =  mkURL $ initTHP $ t
-    print url
-    resp <- get url
-    print resp
-
 
 data THPrq = THPrq { tracker   :: String
                    , peer_id   :: Word160
@@ -43,16 +29,14 @@ data TStatus = TStatus { uploaded   :: Integer
 
 data TEvent = Started | Stopped | Completed
 
-initPeerId = Word160 52395 54325 54321 64352 6543
-initPort = 7000
-
-initTHP :: Torrent -> THPrq
-initTHP Torrent { announce  = announce'
-                , pieceLen  = pieceLen'
-                , fileStuff = fileStuff'
-                , pieces    = pieces'
-                , infoHash  = infoHash'
-                }
+initTHP :: Word160 -> Word -> Torrent -> THPrq
+initTHP initPeerId initPort Torrent
+    { announce  = announce'
+    , pieceLen  = pieceLen'
+    , fileStuff = fileStuff'
+    , pieces    = pieces'
+    , infoHash  = infoHash'
+    }
   = THPrq { tracker   = announce'
           , peer_id   = initPeerId
           , pport     = initPort
