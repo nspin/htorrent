@@ -1,8 +1,12 @@
 module Curtis.Internal
     ( marse
     , urify160
+    , get160s
     , parse160
+    , parse32
     ) where
+
+import           Control.Applicative
 
 import           Data.Bits
 import           Data.Word
@@ -30,6 +34,9 @@ chunk32 x = [ shiftR x 24
             , x
             ]
 
+get160s :: B.ByteString -> Maybe [Word160]
+get160s = maybeResult . (`feed` B.empty) . parse (many1 parse160)
+
 parse160 :: Parser Word160
 parse160 = do
     a <- parse32
@@ -46,9 +53,9 @@ parse32 = do
     c <- anyWord8
     d <- anyWord8
     return $  shiftL (fromIntegral a) 24
-          .&. shiftL (fromIntegral b) 16
-          .&. shiftL (fromIntegral c)  8
-          .&.        (fromIntegral d)
+          .|. shiftL (fromIntegral b) 16
+          .|. shiftL (fromIntegral c)  8
+          .|.        (fromIntegral d)
 
 -- TODO: THIS
 

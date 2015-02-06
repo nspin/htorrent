@@ -12,6 +12,7 @@ import           Curtis.Bencode
 import           Curtis.Internal
 
 import           Control.Monad
+import           Control.Applicative
 
 import           Data.Word
 import           Data.Word8
@@ -89,7 +90,9 @@ getTorrent = getDict >=> \dict -> do
 getInfo :: BValue -> Maybe InfoStuff
 getInfo = getDict >=> \dict -> do
     piece_length' <- bookup "piece length" dict >>= getInt
-    pieces' <- bookup "pieces" dict >>= getString >>= marse (many1 parse160)
+    pieces' <- bookup "pieces" dict
+            >>= getString
+            >>= get160s
     let one = fmap Left $ do
                 name' <- bookup "name" dict >>= getString
                 length' <- bookup "length" dict >>= getInt
@@ -101,7 +104,7 @@ getInfo = getDict >=> \dict -> do
                  name' <- bookup "name" dict >>= getString
                  files' <- bookup "files" dict >>= getList >>= mapM (getDict >=> \file -> do
                     path' <- bookup "path" file >>= getList >>= mapM getString
-                    length' <- bookup "path" file >>= getInt
+                    length' <- bookup "length" file >>= getInt
                     return ManyFile { pathM = map C.unpack path'
                                     , lengthM = length'
                                     , md5sumM = bookup "md5sum" file >>= getString
