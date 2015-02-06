@@ -5,27 +5,26 @@ module Bencode ( BValue(..)
                , getList
                , getString
                , getInt
+               , lookP
+               , rawInfo
                ) where
 
+import           Control.Monad
 import           Control.Applicative
-import qualified Data.Map as M
-import qualified Data.ByteString.Char8 as B
+import           Data.List
 import qualified Data.Attoparsec.ByteString.Char8 as P
+import           Data.Digest.SHA1
+import qualified Data.ByteString.Char8 as B
 
-data BValue = BDict (M.Map B.ByteString BValue)
-            | BList [BValue]
-            | BString B.ByteString
+-- A bencoded value
+data BValue = BString B.ByteString
             | BInt Integer
+            | BList [BValue]
+            | BDict [(B.ByteString, BValue)]
             deriving Show
 
-getDict :: BValue -> Maybe (M.Map B.ByteString BValue)
-getDict (BDict v) = Just v
-getDict _ = Nothing
+-- Getters for parsing de-bencoded torrent files
 
-getList :: BValue -> Maybe [BValue]
-getList (BList v) = Just v
-getList _ = Nothing
-             
 getString :: BValue -> Maybe B.ByteString
 getString (BString v) = Just v
 getString _ = Nothing
@@ -34,11 +33,20 @@ getInt :: BValue -> Maybe Integer
 getInt (BInt v) = Just v
 getInt _ = Nothing
 
+getList :: BValue -> Maybe [BValue]
+getList (BList v) = Just v
+getList _ = Nothing
+
+getDict :: BValue -> Maybe [(B.ByteString, BValue)]
+getDict (BDict v) = Just v
+getDict _ = Nothing
+             
+-- Bencodes a bytestring
 writeBen :: BValue -> B.ByteString
-writeBen (BDict   dict ) = surround 'd' . B.concat . map writePair $ M.toList dict
-writeBen (BList   list ) = surround 'l' . B.concat $ map writeBen list
 writeBen (BString bytes) = writeBytes bytes
 writeBen (BInt    n    ) = surround 'i' . B.pack $ show n
+writeBen (BList   list ) = surround 'l' . B.concat $ map writeBen list
+writeBen (BDict   dict ) = surround 'd' . B.concat $ map writePair dict
 
 writePair :: (B.ByteString, BValue) -> B.ByteString
 writePair (key, value) = B.append (writeBytes key) (writeBen value)
@@ -49,30 +57,26 @@ writeBytes bytes = B.append (B.pack . show $ B.length bytes) $ B.cons ':' bytes
 surround :: Char -> B.ByteString -> B.ByteString
 surround start = B.cons start . (`B.snoc` 'e')
 
+-- De-bencodes a bytestring
 readBen :: B.ByteString -> Maybe BValue
-readBen bytes = case P.parseOnly parseBValue bytes
-                of   Right bval -> Just bval
-                     Left  _    -> Nothing
+readBen = P.maybeResult . P.parse parseValue
 
-parseBValue =  parseBDict
-           <|> parseBList
-           <|> parseBString
-           <|> parseBInt
+parseValue =  BString <$> parseString
+          <|> BInt    <$> parseMid 'i' P.decimal
+          <|> BList   <$> parseMid 'l' (P.many1 parseValue)
+          <|> BDict   <$> parseMid 'd' (P.many1 $ liftA2 (,) parseString parseValue)
 
-parseBDict = fmap (BDict . M.fromList) $
-    P.char 'd' *> P.many1 (liftA2 (,) parseBString' parseBValue) <* P.char 'e'
+parseMid start middle = P.char start *> middle <* P.char 'e'
 
-parseBList = do
-    P.char 'l'
-    things <- P.many1 parseBValue
-    P.char 'e'
-    return (BList things)
--- parseBList = fmap BList $
---     P.char 'l' *> P.many1 parseBValue <* P.char 'e'
+parseString = P.decimal <* P.char ':' >>= P.take
 
-parseBString = BString <$> parseBString'
+lookP :: String -> [(B.ByteString, a)] -> Maybe a
+lookP stringKey dict = lookup (B.pack stringKey) dict
 
-parseBString' = (P.decimal <* P.char ':') >>= P.take
-
-parseBInt = fmap BInt $
-    P.char 'i' *> P.decimal <* P.char 'e'
+-- Extract raw bytestring of info key (if it exists), for use in calculating infohash
+rawInfo :: B.ByteString -> Maybe B.ByteString
+rawInfo = ( P.maybeResult . P.parse ( parseMid 'd'
+                                    $ P.many1
+                                    $ liftA2 (,) parseString (fst <$> P.match parseValue)
+                                    )
+          ) >=> lookP "info"
