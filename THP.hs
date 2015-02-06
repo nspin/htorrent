@@ -26,8 +26,12 @@ data THP_Req = THP_Req { info_hash  :: Word160
 
 data THP_Event = Started | Stopped | Completed
 
+instance Show THP_Event where
+    show Started   = "started"
+    show Stopped   = "stopped"
+    show Completed = "completed"
 
-contact :: B.ByteString -> THP_Req -> IO (Maybe String)
+contact :: String -> THP_Req -> IO (Maybe String)
 contact base thp = case req of
     Nothing -> return Nothing
     Just req -> do
@@ -36,7 +40,7 @@ contact base thp = case req of
             Left _ -> Nothing
             Right (Response {rspBody = body}) -> Just body
   where
-    uri = B.unpack base ++ "?" ++ urlEncodeVars (queries thp)
+    uri = base ++ '?' : urlEncodeVars (queries thp)
     req = do
         theuri <- parseURI uri
         return Request { rqURI     = theuri
@@ -45,12 +49,7 @@ contact base thp = case req of
                        , rqBody    = []
                        }
 
-
-shw Started   = "started"
-shw Stopped   = "stopped"
-shw Completed = "completed"
-
-queries :: THP_Req -> [(Wing, Wing)]
+queries :: THP_Req -> [(String, String)]
 queries THP_Req { info_hash  = info_hash'
                 , peer_id    = peer_id'
                 , rport      = port'
@@ -69,8 +68,9 @@ queries THP_Req { info_hash  = info_hash'
                of   Just e  -> [("event", shw e)]
                     Nothing -> []
 
-from160 :: Word160 -> Wing
-from160 (Word160 a b c d e) = excape
+from160 :: Word160 -> String
+from160 (Word160 a b c d e) = show
+                            . B.pack
                             . map fromIntegral
                             $ concatMap chunkify [a, b, c, d, e]
 

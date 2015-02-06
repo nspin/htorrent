@@ -10,10 +10,6 @@ import           Control.Monad
 import           Data.Word
 import           Data.Word8
 import           Data.Digest.SHA1
-
--- See below for why both are required (spoiler - it has to do
--- with the crypto library. May soon implement SHA1 in here)
-import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString as B2
 
 data Torrent = Torrent { announce  :: Wing
@@ -27,16 +23,16 @@ data Torrent = Torrent { announce  :: Wing
 torrentize :: B.ByteString -> Maybe Torrent
 torrentize bytes = do
 
-    dict       <- readBen bytes             >>= getDict
-    announce'  <- lookP "announce"     dict >>= getString
-    info       <- lookP "info"         dict >>= getDict
-    pieces'    <- lookP "pieces"       info >>= getString
-    pieceLen'  <- lookP "piece length" info >>= getInt
-    infoHash'  <- liftM hash $ rawInfo bytes
+    dict      <- readBen bytes              >>= getDict
+    announce' <- lookup "announce"     dict >>= getString
+    info      <- lookup "info"         dict >>= getDict
+    pieces'   <- lookup "pieces"       info >>= getString
+    pieceLen' <- lookup "piece length" info >>= getInt
+    infoHash' <- liftM hash $ rawInfo bytes
 
-    let one  = liftM Left  $ lookP "length" info >>= getInt
-        many = liftM Right $ lookP "files"  info >>= getList
-                 >>= mapM (getDict >=> lookP "length" >=> getInt)
+    let one  = liftM Left  $ lookup "length" info >>= getInt
+        many = liftM Right $ lookup "files"  info >>= getList
+                 >>= mapM (getDict >=> lookup "length" >=> getInt)
 
     fileStuff' <- mplus one many
 
@@ -47,4 +43,20 @@ torrentize bytes = do
                    , infoHash  = infoHash'
                    }
 
-lookP = lookup . wap
+-- Getters for parsing de-bencoded torrent files
+
+getString :: BValue -> Maybe String
+getString (BString v) = Just v
+getString _ = Nothing
+
+getInt :: BValue -> Maybe Int
+getInt (BInt v) = Just v
+getInt _ = Nothing
+
+getList :: BValue -> Maybe [BValue]
+getList (BList v) = Just v
+getList _ = Nothing
+
+getDict :: BValue -> Maybe [(String, BValue)]
+getDict (BDict v) = Just v
+getDict _ = Nothing
