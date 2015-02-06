@@ -2,9 +2,13 @@ module Torrent ( Torrent(..)
                , torrentize
                ) where
 
+import           Wing
 import           Bencode
+
 import           Control.Monad
-import qualified Data.Map as M
+
+import           Data.Word
+import           Data.Word8
 import           Data.Digest.SHA1
 
 -- See below for why both are required (spoiler - it has to do
@@ -12,10 +16,10 @@ import           Data.Digest.SHA1
 import qualified Data.ByteString.Char8 as B
 import qualified Data.ByteString as B2
 
-data Torrent = Torrent { announce  :: B.ByteString
-                       , pieceLen  :: Integer
-                       , fileStuff :: Either Integer [Integer]
-                       , pieces    :: B.ByteString
+data Torrent = Torrent { announce  :: Wing
+                       , pieceLen  :: Int
+                       , fileStuff :: Either Int [Int]
+                       , pieces    :: Wing
                        , infoHash  :: Word160
                        }
                deriving Show
@@ -28,12 +32,11 @@ torrentize bytes = do
     info       <- lookP "info"         dict >>= getDict
     pieces'    <- lookP "pieces"       info >>= getString
     pieceLen'  <- lookP "piece length" info >>= getInt
-    infoHash'  <- liftM (hash . B2.unpack) $ rawInfo bytes
+    infoHash'  <- liftM hash $ rawInfo bytes
 
     let one  = liftM Left  $ lookP "length" info >>= getInt
-        many = liftM Right $ lookP "files"  info
-                         >>= getList
-                         >>= mapM (getDict >=> lookP "length" >=> getInt)
+        many = liftM Right $ lookP "files"  info >>= getList
+                 >>= mapM (getDict >=> lookP "length" >=> getInt)
 
     fileStuff' <- mplus one many
 
@@ -43,3 +46,5 @@ torrentize bytes = do
                    , pieces    = pieces'
                    , infoHash  = infoHash'
                    }
+
+lookP = lookup . wap

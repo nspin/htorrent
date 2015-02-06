@@ -17,7 +17,7 @@ import           Network.URI
 
 data THP_Req = THP_Req { info_hash  :: Word160
                        , peer_id    :: Word160
-                       , xport      :: Word
+                       , rport      :: Word
                        , uploaded   :: Word
                        , downloaded :: Word
                        , left       :: Word
@@ -50,29 +50,27 @@ shw Started   = "started"
 shw Stopped   = "stopped"
 shw Completed = "completed"
 
-queries :: THP_Req -> [(String, String)]
-queries THP_Req { info_hash  = info_hashV
-                , peer_id    = peer_idV
-                , xport      = portV
-                , uploaded   = uploadedV
-                , downloaded = downloadedV
-                , left       = leftV
-                , event      = eventV
+queries :: THP_Req -> [(Wing, Wing)]
+queries THP_Req { info_hash  = info_hash'
+                , peer_id    = peer_id'
+                , rport      = port'
+                , uploaded   = uploaded'
+                , downloaded = downloaded'
+                , left       = left'
+                , event      = event'
                 }
-        = [ ("info_hash"  , from160 info_hashV)
-          , ("peer_id"    , from160 peer_idV)
-          , ("port"       , show portV)
-          , ("uploaded"   , show uploadedV)
-          , ("downloaded" , show downloadedV)
-          , ("left"       , show leftV)
-          ] ++ case eventV
+        = [ ("info_hash"  , from160 info_hash')
+          , ("peer_id"    , from160 peer_id')
+          , ("port"       , show port')
+          , ("uploaded"   , show uploaded')
+          , ("downloaded" , show downloaded')
+          , ("left"       , show left')
+          ] ++ case event'
                of   Just e  -> [("event", shw e)]
                     Nothing -> []
 
--- Hoping that show escapes for us
-from160 :: Word160 -> String
-from160 (Word160 a b c d e) = show
-                            . B2.pack
+from160 :: Word160 -> Wing
+from160 (Word160 a b c d e) = excape
                             . map fromIntegral
                             $ concatMap chunkify [a, b, c, d, e]
 
@@ -82,12 +80,3 @@ chunkify x = [ shiftR x 24
              , shiftR x  8
              , x
              ]
-
--- -- There's gotta be a better way to do this...
--- from160 :: Word160 -> String
--- from160 (Word160 a b c d e) = mapM escape
---                             $ map (chr. fromIntegral)
---                             $ concatMap chunkify [a, b, c, d, e]
-
--- escape :: Char -> String
--- escape c = if or $ map ($ c) [isAsciiUpper, isAsciiLower, isDigit, (`elem` ".,
