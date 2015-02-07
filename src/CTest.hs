@@ -1,11 +1,7 @@
 module CTest where
 
-import Network
-import System.IO
+import Network.Simple.TCP
 
-main = do
-    (handle, name, number) <- connectTo "137.22.184.35" $ PortNumber 6881
-    print handle
-    print name
-    print number
-    hPutStrLn "hello world"
+main = connect "137.22.184.35" "6881" $ \(sock, addr) -> do
+    print sock
+    print addr
