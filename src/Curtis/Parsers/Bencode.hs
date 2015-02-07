@@ -1,16 +1,17 @@
-module Curtis.Bencode
+module Curtis.Parsers.Bencode
     ( BValue(..)
+    , getBVal
     , getString
     , getInt
     , getList
     , getDict
     , bookup
-    , parseBen
     , bencode
     , hashify
     ) where
 
 import           Curtis.Common
+
 import           Control.Monad
 import           Control.Applicative
 import           Crypto.Hash.SHA1
@@ -18,6 +19,9 @@ import           Data.List
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import           Data.Attoparsec.ByteString.Char8 as P
+
+getBVal :: B.ByteString -> Maybe BValue
+getBVal = marse parseBen
 
 -- A bencoded value
 data BValue = BString B.ByteString

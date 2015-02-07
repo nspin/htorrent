@@ -1,8 +1,8 @@
 module PWP ( Handshake(..)
-           , parseHand
+           , getHand
            , mkShake
            , Message(..)
-           , parseMsg
+           , getMsg
            , mkMsg
            ) where
 
@@ -14,10 +14,17 @@ import           Data.Attoparsec.ByteString
 import           Data.Attoparsec.ByteString.Char8 as P
 import           Control.Applicative
 
+getHand :: B.ByteString -> Maybe Handshake
+getHand = marse parseHand
+
+getMsg :: B.ByteString -> Maybe Message
+getMsg = marse parseMsg
+
 data Handshake = Handshake String B.ByteString B.ByteString
 
 parseHand = liftA3 Handshake (anyWord8 >>= P.take) (take 20) (take 20)
 
+mkShake :: B.ByteString -> B.ByteString -> B.ByteString
 mkShake myid infhash = concat [ B.pack 19
                               , pstr
                               , B.replicate 8 0
@@ -66,6 +73,7 @@ unInt int = B.pack [ fromIntegral $ 255 .&. shiftR part int
                    | part <- [24, 16, 8, 0]
                    ]
 
+mkShake :: Message -> B.ByteString
 mkMsg msg = unInt (length body) `B.append` body
   where body = case msg of
     Keepalive      -> B.empty

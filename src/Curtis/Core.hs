@@ -7,15 +7,24 @@ import Data.Lens
 
 type T = ReaderT Download (StateT (MVar Tate) IO)
 
+
 -- progress is a map from piece number to pairs of start-end bites of needed blocks
-data Tate = Tate { peers    :: [MVar Peer]
-                 , progress :: Map Integer [(Integer, Integer)]
+data Tate = Tate { progress :: Map Integer [(Integer, Integer)]
+                 , --peers    :: [MVar Peer]
                  }
 
+data Progress = Progress { pieces  :: Map Integer Bool
+                         , current :: Integer
+                         , cprog   :: [(Int, Int)]
+                         , tstat   :: TStatus
+                         }
+
 -- infohash, pid, then pieces
-data Download = Download { myd      :: B.ByteString
+data Download = Download { tracker  :: String
+                         , myd      :: B.ByteString
                          , metahash :: B.ByteString
-                         , phashed  :: [B.ByteString]
+                         , myport   :: Integer
+                         , phashes  :: [B.ByteString]
                          }
 
 data Peer = Peer { id       :: PeerID -- necessary? (yes for tracker thread decisions)
@@ -58,14 +67,6 @@ meet di@(addr, prt) = do
                     forever $ liftIO $ do
                         req <- recv sock 133337
                         parseAndDoReq
-
-getTResp = fmap ( ( marse parseBen
-                  . L.toStrict
-                  . (^. responseBody)
-                  ) >=> parseTResp
-                )
-         . get
-         . mkURL
 
 -- prints info for diagnostics
 -- getTRespTEST :: TRequest -> IO (Maybe (Either String TResponse))

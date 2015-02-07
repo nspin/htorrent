@@ -3,7 +3,7 @@ module Curtis.Tracker.THP
     , TStatus(..)
     , TEvent(..)
     , TResponse(..)
-    , parseTResp
+    , getTResp
     , mkURL
     ) where
 
@@ -100,18 +100,18 @@ data TResponse = TResponse { warning_response :: Maybe String
                  deriving Show
 
 
-parseTResp :: BValue -> Maybe (Either String TResponse)
-parseTResp ben = do
+getTResp :: BValue -> Maybe TResponse
+getTResp ben = do
     dict <- getDict ben
     case bookup "failure reason" dict of
-         Just (BString reason) -> Just (Left $ C.unpack reason)
+         Just (BString reason) -> Nothing -- Just (Left $ C.unpack reason)
          Nothing     -> do
             interval'   <- bookup "interval"   dict >>= getInt
             complete'   <- bookup "complete"   dict >>= getInt
             incomplete' <- bookup "incomplete" dict >>= getInt
             peerStuff   <- bookup "peers"      dict
             peers'      <- parseUncompressedPeers peerStuff `mplus` parseCompressedPeers peerStuff
-            return $ Right TResponse
+            Just TResponse
                 { warning_response = fmap C.unpack (bookup "warning_response" dict >>= getString)
                 , interval = interval'
                 , min_interval = bookup "min_interval" dict >>= getInt
