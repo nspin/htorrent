@@ -5,39 +5,36 @@ import Control.Concurrent
 import Control.Concurrent.MVar
 import Data.Lens
 
-type T = ReaderT Info IO
-type P = ReaderT Book IO
+type T = ReaderT Download (StateT (MVar Tate) IO)
 
--- infohash then pid
-data Info = (B.ByteString, B.ByteString)
-
-data Book = Book { peerM :: MVar peer
-                 , msgsM :: MVar (Seq Message)
-                 , infoT :: Info
+-- progress is a map from piece number to pairs of start-end bites of needed blocks
+data Tate = Tate { peers    :: [MVar Peer]
+                 , progress :: Map Integer [(Integer, Integer)]
                  }
 
-data Peer = Peer { id :: PeerID
+-- infohash, pid, then pieces
+data Download = Download { myd      :: B.ByteString
+                         , metahash :: B.ByteString
+                         , phashed  :: [B.ByteString]
+                         }
+
+data Peer = Peer { id       :: PeerID -- necessary? (yes for tracker thread decisions)
+                 , sock     :: Socket -- necessary?
                  , relation :: Relation
-                 , status :: Map Integer Bool
-                 , sock :: Socket
+                 , status   :: (Map Integer Bool)
+                 , up       :: Word
+                 , down     :: Word
+                 , cchan    :: Command
                  }
 
-type PeerID = (String, String) -- addr, port
+-- addr, port
+type PeerID = (String, String)
 
 data Relation = Relation { choked      :: Bool
                          , choking     :: Bool
                          , inerested   :: Bool
                          , interesting :: Bool
                          }
-
-pstr :: B.ByteString
-pstr = C.pack "BitTorrent protocol"
-
-handhead :: B.ByteString
-handhead = concat [ B.pack 19
-                  , pstr
-                  , B.replicate 8 0
-                  ]
 
 meet :: PeerID -> P ()
 meet di@(addr, prt) = do
@@ -61,3 +58,27 @@ meet di@(addr, prt) = do
                     forever $ liftIO $ do
                         req <- recv sock 133337
                         parseAndDoReq
+
+getTResp = fmap ( ( marse parseBen
+                  . L.toStrict
+                  . (^. responseBody)
+                  ) >=> parseTResp
+                )
+         . get
+         . mkURL
+
+-- prints info for diagnostics
+-- getTRespTEST :: TRequest -> IO (Maybe (Either String TResponse))
+-- getTRespTEST req = do
+--     print $ mkURL req
+--     resp <- get $ mkURL req
+--     print resp
+--     let ben = L.toStrict (resp ^. responseBody)
+--     print "\n\n"
+--     print $ marse parseBen ben
+--     print "\n\n"
+--     return ((( marse parseBen
+--                   . L.toStrict
+--                   . (^. responseBody)
+--            ) >=> parseTResp) resp)
+

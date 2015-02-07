@@ -12,4 +12,3 @@ import           Data.Attoparsec.ByteString
 
 marse :: Parser a -> B.ByteString -> Maybe a
 marse parser = maybeResult . parse parser
-

@@ -3,8 +3,8 @@ module Curtis.Tracker.THP
     , TStatus(..)
     , TEvent(..)
     , TResponse(..)
-    , getTResp
-    -- , getTRespTEST
+    , parseTResp
+    , mkURL
     ) where
 
 import           Curtis.Bencode
@@ -13,7 +13,6 @@ import           Control.Monad
 import           Data.Bits
 import           Data.Char
 import           Data.Word
-import           Data.Digest.SHA1
 import           Data.List
 import           Data.List.Split
 import           Data.Maybe
@@ -21,31 +20,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Char8 as C
 import           Data.Attoparsec.ByteString
-import           Network.Wreq
 import           Control.Lens
-
-getTResp = fmap ( ( marse parseBen
-                  . L.toStrict
-                  . (^. responseBody)
-                  ) >=> parseTResp
-                )
-         . get
-         . mkURL
-
--- prints info for diagnostics
--- getTRespTEST :: TRequest -> IO (Maybe (Either String TResponse))
--- getTRespTEST req = do
---     print $ mkURL req
---     resp <- get $ mkURL req
---     print resp
---     let ben = L.toStrict (resp ^. responseBody)
---     print "\n\n"
---     print $ marse parseBen ben
---     print "\n\n"
---     return ((( marse parseBen
---                   . L.toStrict
---                   . (^. responseBody)
---            ) >=> parseTResp) resp)
 
 data TRequest = TRequest { tracker    :: String
                          , info_hash  :: B.ByteString
