@@ -5,18 +5,73 @@ import           Curtis.Track.THP
 import           Curtis.Bencode
 import           Curtis.Common
 
+import           Data.List
 import qualified Data.ByteString as B
-import           Data.Digest.SHA1
 import           Network.Wreq
+
+-- test :: IO ()
+-- test = do
+--     file <- B.readFile "/home/nick/stuff/slackware-14.1-install-dvd.torrent"
+--     let Just (MetaInfo t h) = getMeta file
+--         Torrent { announce = a
+--                 , infoStuff = InfoStuff { piece_length = len
+--                                         , pieces = n
+--                                         }
+--                 } = t
+--         req = TRequest { tracker = a
+--                        , info_hash = h
+--                        , peer_id = idX
+--                        , pport = portX
+--                        , status = TStatus { uploaded = 0
+--                                           , downloaded = 0
+--                                           , left = len * genericLength n
+--                                           }
+--                        , compact = False
+--                        , no_peer_id = False
+--                        , event = Just Started
+--                        , ip = Nothing
+--                        , numwant = Nothing
+--                        , key = Just idX
+--                        , trackerid = Nothing
+--                        }
+--     print req
+--     resp <- getTRespTEST req
+--     print resp
 
 test :: IO ()
 test = do
     file <- B.readFile "/home/nick/stuff/slackware-14.1-install-dvd.torrent"
     let Just (MetaInfo t h) = getMeta file
-    print t
+        Torrent { announce = a
+                , infoStuff = InfoStuff { piece_length = len
+                                        , pieces = n
+                                        }
+                } = t
+        req = TRequest { tracker = a
+                       , info_hash = h
+                       , peer_id = idX
+                       , pport = portX
+                       , status = TStatus { uploaded = 0
+                                          , downloaded = 0
+                                          , left = len * genericLength n
+                                          }
+                       , compact = False
+                       , no_peer_id = False
+                       , event = Just Started
+                       , ip = Nothing
+                       , numwant = Nothing
+                       , key = Just idX
+                       , trackerid = Nothing
+                       }
+    getTResp req >>= print
 
--- initPeerId = Word160 52395 54325 54321 64352 6543
--- initPort = 7000
+idX = B.pack [ 54, 43, 32, 33
+             , 33, 33, 33, 33
+             , 54, 54, 54, 54
+             , 76, 76, 76, 67
+             , 32, 32, 32, 32
+             ]
+portX = 7000
 
 -- test :: IO ()
 -- test = do

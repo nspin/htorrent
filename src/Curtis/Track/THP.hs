@@ -1,9 +1,10 @@
 module Curtis.Track.THP
-    ( THPrq(..)
+    ( TRequest(..)
     , TStatus(..)
     , TEvent(..)
     , TResponse(..)
-    , getTHPResp
+    , getTResp
+    -- , getTRespTEST
     ) where
 
 import           Curtis.Bencode
@@ -23,53 +24,70 @@ import           Data.Attoparsec.ByteString
 import           Network.Wreq
 import           Control.Lens
 
-getTHPResp :: THPrq -> IO (Maybe (Either String TResponse))
-getTHPResp = fmap ( ( marse parseBen
-                    . L.toStrict
-                    . (^. responseBody)
-                    ) >=> parseTResp
-                  )
-           . get
-           . mkURL
+getTResp = fmap ( ( marse parseBen
+                  . L.toStrict
+                  . (^. responseBody)
+                  ) >=> parseTResp
+                )
+         . get
+         . mkURL
 
-data THPrq = THPrq { tracker    :: String
-                   , info_hash  :: B.ByteString
-                   , peer_id    :: B.ByteString
-                   , pport      :: Word
-                   , status     :: TStatus
-                   , compact    :: Bool
-                   , no_peer_id :: Bool
-                   , event      :: Maybe TEvent
-                   , ip         :: Maybe String
-                   , numwant    :: Maybe Word
-                   , key        :: Maybe B.ByteString
-                   , trackerid  :: Maybe String
-                   }
+-- prints info for diagnostics
+-- getTRespTEST :: TRequest -> IO (Maybe (Either String TResponse))
+-- getTRespTEST req = do
+--     print $ mkURL req
+--     resp <- get $ mkURL req
+--     print resp
+--     let ben = L.toStrict (resp ^. responseBody)
+--     print "\n\n"
+--     print $ marse parseBen ben
+--     print "\n\n"
+--     return ((( marse parseBen
+--                   . L.toStrict
+--                   . (^. responseBody)
+--            ) >=> parseTResp) resp)
+
+data TRequest = TRequest { tracker    :: String
+                         , info_hash  :: B.ByteString
+                         , peer_id    :: B.ByteString
+                         , pport      :: Word
+                         , status     :: TStatus
+                         , compact    :: Bool
+                         , no_peer_id :: Bool
+                         , event      :: Maybe TEvent
+                         , ip         :: Maybe String
+                         , numwant    :: Maybe Word
+                         , key        :: Maybe B.ByteString
+                         , trackerid  :: Maybe String
+                         }
+  deriving Show
 
 data TStatus = TStatus { uploaded   :: Integer
                        , downloaded :: Integer
                        , left       :: Integer
                        }
+  deriving Show
 
 data TEvent = Started | Stopped | Completed
+  deriving Show
 
-mkURL :: THPrq -> String
-mkURL THPrq { tracker    = tracker'
-            , info_hash  = info_hash'
-            , peer_id    = peer_id'
-            , pport      = pport'
-            , status     = TStatus { uploaded   = uploaded'
-                                   , downloaded = downloaded'
-                                   , left       = left'
-                                   }
-            , compact    = compact'
-            , no_peer_id = no_peer_id'
-            , event      = event'
-            , ip         = ip'
-            , numwant    = numwant'
-            , key        = key'
-            , trackerid  = trackerid'
-            }
+mkURL :: TRequest -> String
+mkURL TRequest { tracker    = tracker'
+               , info_hash  = info_hash'
+               , peer_id    = peer_id'
+               , pport      = pport'
+               , status     = TStatus { uploaded   = uploaded'
+                                      , downloaded = downloaded'
+                                      , left       = left'
+                                      }
+               , compact    = compact'
+               , no_peer_id = no_peer_id'
+               , event      = event'
+               , ip         = ip'
+               , numwant    = numwant'
+               , key        = key'
+               , trackerid  = trackerid'
+               }
   = tracker' ++ "?" ++ intercalate "&"
         ( [ "info_hash="  ++ urifyBS info_hash'
           , "peer_id="    ++ urifyBS peer_id'
@@ -128,7 +146,7 @@ parseTResp ben = do
 
 parseUncompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
 parseUncompressedPeers = fmap Left . (getList >=> mapM (getDict >=> \d ->
-    do peer_id' <- bookup "peer_id" d >>= getString
+    do peer_id' <- bookup "peer id" d >>= getString
        ip'      <- bookup "ip"      d >>= getString
        port'    <- bookup "port"    d >>= getInt
        return (peer_id', C.unpack ip', port')))
