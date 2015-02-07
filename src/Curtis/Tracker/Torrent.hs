@@ -1,4 +1,4 @@
-module Curtis.Track.Torrent
+module Curtis.Tracker.Torrent
     ( MetaInfo(..)
     , Torrent(..)
     , InfoStuff(..)

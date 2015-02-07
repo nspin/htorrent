@@ -1,4 +1,4 @@
-module Curtis.Track.THP
+module Curtis.Tracker.THP
     ( TRequest(..)
     , TStatus(..)
     , TEvent(..)

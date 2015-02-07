@@ -1,7 +1,7 @@
 module Test where
 
-import           Curtis.Track.Torrent
-import           Curtis.Track.THP
+import           Curtis.Tracker.Torrent
+import           Curtis.Tracker.THP
 import           Curtis.Bencode
 import           Curtis.Common
 
