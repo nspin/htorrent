@@ -117,6 +117,8 @@ data TResponse = TResponse { warning_response :: Maybe String
                            , tracker_id       :: Maybe String
                            , complete         :: Integer
                            , incomplete       :: Integer
+                           -- left = non-compact (peerid, ip, port)
+                           -- right = compact (no peerid)
                            , peers            :: Either [(B.ByteString, String, Integer)]
                                                         [(              String, Integer)]
                            }
@@ -154,7 +156,7 @@ parseUncompressedPeers = fmap Left . (getList >=> mapM (getDict >=> \d ->
 parseCompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
 parseCompressedPeers = fmap (Right . map aux . chunksOf 6 . B.unpack) . getString
   where aux [a, b, c, d, e, f] = ( intercalate "." $ map show [a, b, c, d]
-                                 , shiftL 8 (fromIntegral e) .&. fromIntegral f
+                                 , fromIntegral e * 256 + fromIntegral f
                                  )
 
 urifyBS :: B.ByteString -> String
