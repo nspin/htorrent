@@ -16,7 +16,7 @@ import           System.IO
 -- control more granular.
 ----------------------------------------
 
-type Curry = Reader Environment
+type Curry = ReaderT Environment
 
 ----------------------------------------
 -- COMMON TO THE ENTIRE INSANCE
@@ -24,7 +24,7 @@ type Curry = Reader Environment
 
 data Environment = Environment
     { config    :: Config
-    , identity  :: Identity
+    , ident     :: Ident
     , metaInfo  :: MetaInfo
     , currPiece :: TVar (M.Map Chunk B.ByteString)
     , pieceMap  :: TVar (M.Map Integer (Maybe  Handle))
@@ -36,10 +36,10 @@ data Config = Config
     , maxPeers :: Integer
     } deriving Show
 
-data Identity = Identity
-    { port       :: Integer -- port listening on
-    , pid        :: B.ByteString -- out peer id (random)
-    , key        :: B.ByteString -- our key (random)
+data Ident = Ident
+    { port :: Integer -- port listening on
+    , pid  :: B.ByteString -- out peer id (random)
+    , key  :: B.ByteString -- our key (random)
     } deriving Show
 
 -- Information about a part of a piece
@@ -58,10 +58,10 @@ data Peer = Peer
 
 -- What a specific peer thread has
 data MutPeer = MutPeer
-    { status  :: Status
-    , has     :: (M.Map Integer Bool)
-    , up      :: Integer
-    , down    :: Integer
+    { status :: Status
+    , has    :: (M.Map Integer Bool)
+    , up     :: Integer
+    , down   :: Integer
     } deriving Show
 
 data Status = Status
@@ -77,7 +77,7 @@ data Status = Status
 ----------------------------------------
 
 data CommSt = CommSt
-    { trackerID   :: B.ByteString -- our tracker id
+    { trackerId   :: Maybe B.ByteString -- our tracker id
     , interval    :: Integer -- from tracker
     , minIntervel :: Integer -- from tracker
     }

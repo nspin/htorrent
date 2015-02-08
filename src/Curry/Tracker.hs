@@ -1,15 +1,13 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Curry.Tracker
-    ( askTrack
-    ) where
+module Curry.Tracker where
 
-import           Curry.Types
+import           Curry.State
 import           Curry.Parsers.Bencode
 import           Curry.Parsers.PWP
+import           Curry.Parsers.Torrent
 
-import           Control.Concurrent
-import           Control.Concurrent.MVar
+import           Control.Concurrent.STM
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Reader
@@ -35,22 +33,35 @@ instance Show Travent where
     show Stopped  = "stopped"
     show Complete = "complete"
 
-mkURL :: Environment -> CommSt -> Travent -> STM String
+mkURL :: Environment -> CommSt -> Maybe Travent -> STM String
 mkURL Environment{..} CommSt{..} event = do
-    announce trackers ++ "?" ++ intercalate "&"
+
+    peers' <- readTVar peers
+    ups <- mapM (fmap up . readTVar . mut) peers'
+    downs <- mapM (fmap down . readTVar . mut) peers'
+    have <- readTVar pieceMap
+
+    return (announce torrent ++ "?" ++ intercalate "&"
       ( catMaybes [ fmap (("trackerid=" ++) . urifyBS) trackerId
                   , fmap (("event="     ++) . show   ) event
                   ]
-     ++ [ "peer_id="    ++ urifyBS pid
+     ++ [ "numwant="    ++ show minPeers
         , "port="       ++ show port
-        -- , "numwant="    ++ show minPeers
+        , "peer_id="    ++ urifyBS pid
         , "key="        ++ urifyBS key
         , "info_hash="  ++ urifyBS infoHash
-        , "uploaded="   ++ show uploaded
-        , "downloaded=" ++ show downloaded
-        , "left="       ++ show (size - downloaded)
+        , "uploaded="   ++ show ( sum ups)
+        , "downloaded=" ++ show ( sum downs)
+        , "left="       ++ show ( totalSize - toInteger (M.size have))
         ]
-      )
+      ))
+
+  where
+    Config{..} = config
+    Ident{..} = ident
+    MetaInfo{..} = metaInfo
+    info' = info torrent
+    totalSize = pieceLen info' * genericLength (pieces info')
 
 urifyBS :: B.ByteString -> String
 urifyBS = concatMap urify8 . B.unpack
@@ -167,18 +178,6 @@ toHexHalf = genericIndex "0123456789ABCDEF"
 
 -- --     threadDelay interval
 
--- -- -- parseUncompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
--- -- -- parseUncompressedPeers = fmap Left . (getList >=> mapM (getDict >=> \d ->
--- -- --     do peer_id' <- lookup "peer id" d >>= getString
--- -- --        ip'      <- lookup "ip"      d >>= getString
--- -- --        port'    <- lookup "port"    d >>= getInt
--- -- --        return (peer_id', C.unpack ip', port')))
-
--- -- -- parseCompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
--- -- -- parseCompressedPeers = fmap (Right . map aux . chunksOf 6 . B.unpack) . getString
--- -- --   where aux [a, b, c, d, e, f] = ( intercalate "." $ map show [a, b, c, d]
--- -- --                                  , fromIntegral e * 256 + fromIntegral f
--- -- --                                  )
 
 -- -- mkURL ::
 

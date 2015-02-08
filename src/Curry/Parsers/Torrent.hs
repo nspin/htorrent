@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE RecordWildCards, FlexibleInstances #-}
 
 module Curry.Parsers.Torrent where
 
@@ -121,3 +121,7 @@ getInfo = getDict >=> \info -> do
 eitherToMaybe :: Either a b -> Maybe b
 eitherToMaybe (Right x) = Just x
 eitherToMaybe (Left  _) = Nothing
+
+infixl 1 <%>
+(<%>) :: Applicative f => f (a -> b) -> a -> f b
+(<%>) = (. pure) . (<*>)
