@@ -1,11 +1,14 @@
 module Curry.Parsers.PWP
-    ( Context
-    , Message(..)
+    ( Message(..)
+    , Context
     , getBigEnd
     , getMsg
+    , getCtxt
     , mkBigEnd
     , mkMsg
+    , mkCtxt
     , filterMsg
+    , merge
     ) where
 
 import           Control.Applicative
@@ -24,15 +27,6 @@ import           Prelude hiding (take)
 -- TYPES
 ----------------------------------------
 
-data Context = Context
-    { bep001 :: Bool
-    , bep002 :: Bool
-    , bep003 :: Bool
-    , bep004 :: Bool
-    , bep005 :: Bool
-    , bep006 :: Bool
-    } deriving Show
-
 data Message = Keepalive
              | Choke
              | Unchoke
@@ -44,6 +38,15 @@ data Message = Keepalive
              | Piece Integer Integer B.ByteString
              | Cancel Integer Integer Integer
              deriving Show
+
+data Context = Context
+    { bep001 :: Bool
+    , bep002 :: Bool
+    , bep003 :: Bool
+    , bep004 :: Bool
+    , bep005 :: Bool
+    , bep006 :: Bool
+    } deriving Show
 
 ----------------------------------------
 -- GETTERS
@@ -69,6 +72,8 @@ parseMsg = endOfInput *> return Keepalive <|> do
         7 -> liftA3 Piece bigEnd bigEnd takeByteString
         8 -> liftA3 Cancel bigEnd bigEnd bigEnd
 
+getCtxt = Context False False False False False False
+
 ----------------------------------------
 -- MAKERS
 ----------------------------------------
@@ -92,6 +97,8 @@ mkMsg (Request  x y z) = 6 `B.cons` (B.concat . map mkBigEnd) [x, y, z]
 mkMsg (Piece    x y z) = 7 `B.cons` B.concat [mkBigEnd x, mkBigEnd y, z]
 mkMsg (Cancel   x y z) = 8 `B.cons` (B.concat . map mkBigEnd) [x, y, z]
 
+mkCtxt = const . B.pack $ replicate 8 0
+
 ----------------------------------------
 -- FILTER
 ----------------------------------------
@@ -112,6 +119,9 @@ filterMsg conext msg = case msg of
     yup = Right msg
     nope True = const $ Right msg
     nope False = Left
+
+merge :: Context -> Context -> Context
+merge _ = id
 
 ----------------------------------------
 -- HELPERS

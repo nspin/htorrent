@@ -11,8 +11,8 @@ pears <- atomically $ readTVar (peers environment)
 when (not $ theirAddr `elem` map addr pears) $ do
   where
 
-meet :: Environment -> Peer -> Socket -> IO ()
-meet env peer sock = do
+meet :: Env -> Addr -> IO ()
+meet env (Addr ip port) = do
     sent <- send sock $ ourShake env
     theirBody <- recv sock 48
     recv sock 20
