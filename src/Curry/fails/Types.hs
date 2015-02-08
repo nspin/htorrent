@@ -5,6 +5,8 @@ import           Curry.Parsers.PWP
 import           Curry.Parsers.THP
 import           Curry.Parsers.Torrent
 
+import           Control.Concurrent.Chan
+import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
 import           Control.Monad
 import           Control.Monad.Reader

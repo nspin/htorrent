@@ -96,7 +96,7 @@ mkMsg (Cancel   x y z) = 8 `B.cons` (B.concat . map mkBigEnd) [x, y, z]
 -- FILTER
 ----------------------------------------
 
-filterMsg :: Conext -> Message -> Either String Message
+filterMsg :: Context -> Message -> Either String Message
 filterMsg conext msg = case msg of
     Keepalive     -> yup
     Choke         -> yup

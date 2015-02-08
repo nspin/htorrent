@@ -26,6 +26,7 @@ module Curry.Common
 
 import qualified Data.ByteString as B
 import           Control.Applicative
+import           Control.Concurrent.Chan
 import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
 import           Control.Monad
@@ -130,6 +131,9 @@ readCount (CountView mvar) = do
 -- used for debugging)
 
 instance Show (MVar a) where
+    show _ = "(an mvar exists here)"
+
+instance Show (Chan a) where
     show _ = "(an mvar exists here)"
 
 instance Show (TVar a) where
