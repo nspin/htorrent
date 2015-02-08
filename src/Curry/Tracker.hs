@@ -30,6 +30,44 @@ import           Data.Maybe
 import qualified Network.Wreq as W
 import           Prelude hiding (GT)
 
+mkURL :: Global -> Maybe B.ByteString -> Maybe Travent -> Query Torp String
+mkURL Global{..} trackerId event = (`fmap` ask) $ \Torp{..} ->
+    announce trackers ++ "?" ++ intercalate "&"
+      ( catMaybes [ fmap (("trackerid=" ++) . urifyBS) trackerId
+                  , fmap (("event="     ++) . show   ) event
+                  ]
+     ++ [ "peer_id="    ++ urifyBS pid
+        , "port="       ++ show port
+        , "numwant="    ++ show minPeers
+        , "key="        ++ urifyBS key
+        , "info_hash="  ++ urifyBS infoHash
+        , "uploaded="   ++ show uploaded
+        , "downloaded=" ++ show downloaded
+        , "left="       ++ show (size - downloaded)
+        ]
+      )
+
+urifyBS :: B.ByteString -> String
+urifyBS = concatMap urify8 . B.unpack
+
+urify8 :: Word8 -> String
+urify8 byte = ['%', toHexHalf $ shiftR byte 4, toHexHalf $ byte .&. 15]
+
+toHexHalf :: Word8 -> Char
+toHexHalf = genericIndex "0123456789ABCDEF"
+
+---------------------------------------------------------------------
+
+-- Event for tracker http requests
+
+data Travent = Started | Stopped | Complete
+
+instance Show Travent where
+    show Started  = "started"
+    show Stopped  = "stopped"
+    show Complete = "complete"
+
+
 -- A tracker event
 data Travent = Started | Stopped | Complete deriving Show
 
