@@ -1,4 +1,4 @@
-module Current.Torrent
+module Curry.Torrent
     ( torpify
     ) where
 
@@ -11,11 +11,11 @@ import           Data.Attoparsec.ByteString.Char8 as P
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import           Data.Either
+import           Data.List
 import           Data.Maybe
 import qualified Data.Map as M
 import           Data.Word
 import           Data.Word8
-import           Prelude hiding (length)
 
 torpify :: B.ByteString -> Either String Torp
 torpify bytes = do
@@ -58,14 +58,17 @@ torpify bytes = do
                       . (`feed` B.empty)
                       . parse (many1 $ P.take 20)
                       )
+        plen = leekup "piece length" info >>= getInt
 
     Torp <$> hashify bytes
-         <*> trackers
          <*> return funfo
          <*> mplus one many
-         <*> (leekup "piece length" info >>= getInt)
-         <*> fmap (M.fromList . zip [0..] . map Right) pieces
-         <%> 0
+         <*> liftM2 (*) plen (fmap genericLength pieces)
+         <*> return 0
+         <*> return 0
+         <*> trackers
+         <*> plen
+         <*> fmap (M.fromList . zip [0..] . map Hash) pieces
 
 -- The opposite of fmap
 infixl 1 <%>

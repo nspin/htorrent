@@ -86,11 +86,3 @@ askTrack Global{..} acid peerCan = forever $ do
 
 mkURL :: 
 
-urifyBS :: B.ByteString -> String
-urifyBS = concatMap urify8 . B.unpack
-
-urify8 :: Word8 -> String
-urify8 byte = ['%', toHexHalf $ shiftR byte 4, toHexHalf $ byte .&. 15]
-
-toHexHalf :: Word8 -> Char
-toHexHalf = genericIndex "0123456789ABCDEF"

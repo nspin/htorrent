@@ -29,7 +29,7 @@ import           Data.Typeable
 -- be used in lookup (rather than packing for each lookup, which is not
 -- very efficient).
 data BValue = BString B.ByteString
-            | BInt Int
+            | BInt Integer
             | BList [BValue]
             | BDict [(String, BValue)]
             deriving (Eq, Show, Data, Typeable)
@@ -83,7 +83,7 @@ getString :: BValue -> Either String B.ByteString
 getString (BString v) = Right v
 getString b = Left ("The following BValue is not a BString:\n" ++ show b)
 
-getInt :: BValue -> Either String Int
+getInt :: BValue -> Either String Integer
 getInt (BInt v) = Right v
 getInt b = Left ("The following BValue is not an BInt:\n" ++ show b)
 
