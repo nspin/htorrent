@@ -14,29 +14,27 @@ import           System.IO
 -- COMMON TO THE ENTIRE INSANCE
 ----------------------------------------
 
-data Config = Config
+data Environment = Environment
     { minPeers :: Integer
     , maxPeers :: Integer
-    }
-
-data GlobalEnv = GlobalEnv
     { metaInfo :: MetaInfo
     , pieceMap :: MVar (M.Map Integer (Maybe  Handle))
-    , totalUp  :: CountView Integer -- tally of total downloaded
-    }
-
-----------------------------------------
--- SPECIFIC TO COMMUNICATION THREAD
-----------------------------------------
-
--- Environment for a variable
-data CommEnv = CommEnv
+    , totalUp  :: MVar Integer -- tally of total downloaded
+    { peerChute:: MVar Peer
+    , chunkCan :: MVar [(Chunk, B.ByteString)]
     { port       :: Integer -- port listening on
     , pid        :: B.ByteString -- out peer id (random)
     , key        :: B.ByteString -- our key (random)
     , pids       :: MVar [B.ByteString] -- peers that have been connected to so far
-    , peerIn     :: ChuteIn Peer
     } deriving Show
+
+    , chunks'  :: ChuteOut [(Chunk, B.ByteString)]
+    , totalUp' :: CountCtrl Integer -- tally of total uploaded (shared with
+
+
+----------------------------------------
+-- SPECIFIC TO COMMUNICATION THREAD
+----------------------------------------
 
 data CommSt = CommSt
     { trackerID   :: B.ByteString -- our tracker id
@@ -49,36 +47,31 @@ data CommSt = CommSt
 ----------------------------------------
 
 data FriendEnv = FriendEnv
-    { status'  :: MVar Status
-    , has'     :: MCtrl (M.Map Integer Bool)
-    , up'      :: CountCtrl Integer
-    , down'    :: CountCtrl Integer
-    , chunks'  :: ChuteOut [(Chunk, B.ByteString)]
-    , totalUp' :: CountCtrl Integer -- tally of total uploaded (shared with
+    { mut'     :: MutPeer
     }
+
+data MutPeer = MutPeer
+    , status  :: MVar Status
+    , has     :: MVar (M.Map Integer Bool)
+    , up      :: MVar Integer
+    , down    :: MVar Integer
+    } deriving Show
 
 ----------------------------------------
 -- SPECIFIC TO BRAIN THREADS
 ----------------------------------------
 
-data BrainEnv = BrainEnv
-    { peerOut    :: ChuteOut Peer
-    , chunks     :: ChuteIn [(Chunk, B.ByteString)]
-    }
-
 data BrainSt = BrainSt
     { pieceNum   :: Integer
     , piecePart  :: M.Map Chunk B.ByteString
-    , peers      :: [Peer]
+    , peers      :: MVar [Peer]
     } deriving Show
 
 -- Information about a specific peer. Always exists in an MVar
 data Peer = Peer
     { socket  :: Socket
-    , status  :: MVar Status
-    , has     :: MView (M.Map Integer Bool)
-    , up      :: CountView Integer
-    , down    :: CountView Integer
+    , theirID :: B.ByteString -- out peer id (random)
+    , mut     :: MutPeer
     } deriving Show
 
 data Chunk = Chunk
