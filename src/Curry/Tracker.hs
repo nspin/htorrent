@@ -30,15 +30,28 @@ import           Data.Maybe
 import qualified Network.Wreq as W
 import           Prelude hiding (GT)
 
-mkURL :: Global -> Maybe B.ByteString -> Maybe Travent -> Query Torp String
-mkURL Global{..} trackerId event = (`fmap` ask) $ \Torp{..} ->
+-- Our monad stack
+type Communication a = ReaderT GlobalEnv (ReaderT CommEnv (StateT CommSt IO a))
+
+track :: Communication ()
+track = do
+    
+    
+
+mkURL :: Travent -> Communication String
+mkURL event = do
+    MetaInfo{..} <- asks metaInfo
+    CommEnv{..} <- lift ask
+    ups <- 
+    CommSt{..} <- lift $ lift get     
+    
     announce trackers ++ "?" ++ intercalate "&"
       ( catMaybes [ fmap (("trackerid=" ++) . urifyBS) trackerId
                   , fmap (("event="     ++) . show   ) event
                   ]
      ++ [ "peer_id="    ++ urifyBS pid
         , "port="       ++ show port
-        , "numwant="    ++ show minPeers
+        -- , "numwant="    ++ show minPeers
         , "key="        ++ urifyBS key
         , "info_hash="  ++ urifyBS infoHash
         , "uploaded="   ++ show uploaded

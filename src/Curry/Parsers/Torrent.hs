@@ -15,6 +15,7 @@ import           Data.Maybe
 data MetaInfo = MetaInfo
     { infoHash :: B.ByteString
     , torrent  :: Torrent
+    , size     :: Integer
     } deriving Show
 
 data Torrent = Torrent

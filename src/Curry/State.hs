@@ -1,10 +1,19 @@
-module Curry.State where
+module Curry.State
+    ( ChuteIn
+    , ChuteOut
+    , newChutes
+    , putChute
+    , takeChute
+    , Config
+    , GlobalEnv
+    , CommEnv
+    , CommSt
+    , BrainEnv
+    , BrainSt
+    ) where
 
 import           Curry.Parsers.Torrent
 
-import           Control.Concurrent.Chan
-import           Control.Concurrent.Chan.ReadOnly
-import           Control.Concurrent.Chan.WriteOnly
 import           Control.Concurrent.MVar
 import           Control.Concurrent.MVar.ReadOnly
 import           Control.Concurrent.MVar.WriteOnly
@@ -14,11 +23,44 @@ import           Network.Socket
 import           System.IO
 
 ----------------------------------------
+-- CHUTES
+----------------------------------------
+
+-- Simple wrappers around an MVar
+data ChuteIn  a = ChuteIn  (MVar a) deriving Show
+data ChuteOut a = ChuteOut (MVar a) deriving Show
+
+newChutes :: IO (ChuteIn a, ChuteOut a)
+newChutes = do
+    mvar <- newMVar []
+    return (ChuteIn mvar, ChuteOUt mvar)
+
+-- These are thread safe because ALL threads modifying the wrapped mvars
+-- will use a single take and single put, so they are guarenteed to be atomic.
+
+putChute :: ChuteIn a -> a -> IO ()
+putChute (ChuteIn mvar) x = do
+    xs <- takeMVar mvar
+    putMVar mvar (x:xs)
+
+takeChute :: ChuteOut a -> IO [a]
+takeChute (ChuteOut mvar) = do
+    xs <- takeMVar mvar
+    putMVar mvar []
+    return xs
+
+----------------------------------------
 -- COMMON TO THE ENTIRE INSANCE
 ----------------------------------------
 
+data Config = Config
+    { minPeers :: Integer
+    , maxPeers :: Integer
+    }
+
 data GlobalEnv = GlobalEnv
     { metaInfo :: MetaInfo
+    , pieceMap :: MVar (M.Map Integer (Maybe  Handle))
     }
 
 ----------------------------------------
@@ -31,8 +73,8 @@ data CommEnv = CommEnv
     , pid        :: B.ByteString
     , key        :: B.ByteString
     , pids       :: MVar [B.ByteString] -- peers that have been connected to so far
-    , commUps    :: ReadOnlyChan Integer
-    , commDowns  :: ReadOnlyChan Integer
+    , commUps    :: ChuteIn Integer
+    , commDowns  :: ChuteIn Integer
     } deriving Show
 
 data CommSt = CommSt
@@ -48,15 +90,14 @@ data CommSt = CommSt
 ----------------------------------------
 
 data BrainEnv = BrainEnv
-    { peerOut    :: ReadOnlyChan Peer
-    , brainUps   :: WriteOnlyChan Integer
-    , brainDowns :: WriteOnlyChan Integer
+    { peerOut    :: ChuteIn Peer
+    , brainUps   :: ChuteOut Integer
+    , brainDowns :: ChuteOut Integer
     }
 
 data BrainSt = BrainSt
     { pieceNum   :: Integer
     , piecePart  :: M.Map Chunk B.ByteString
-    , pieceMap   :: M.Map Integer (Either B.ByteString  Handle)
     , peers      :: [Peer]
     } deriving Show
 
@@ -66,7 +107,7 @@ data Peer = Peer
     , status  :: MVar Status
     , up      :: ReadOnlyMVar Integer
     , has     :: ReadOnlyMVar (M.Map Integer Bool)
-    , chunks  :: ReadOnlyChan [(Chunk, B.ByteString)]
+    , chunks  :: ChuteIn [(Chunk, B.ByteString)]
     , close   :: MVar ()
     } deriving Show
 
@@ -87,24 +128,8 @@ data Status = Status
 -- CETERA
 ----------------------------------------
 
--- query for acid state
--- To allow types with MVars and Chans to allow show (which will only be
+-- To allow types with MVars to allow show (which will only be
 -- used for debugging)
 
 instance Show (MVar a) where
     show _ = "(an mvar exists here)"
-
-instance Show (ReadOnlyMVar a) where
-    show _ = "(a readonly mvar exists here)"
-
-instance Show (WriteOnlyMVar a) where
-    show _ = "(a writeonly mvar exists here)"
-
-instance Show (Chan a) where
-    show _ = "(an mvar exists here)"
-
-instance Show (ReadOnlyChan a) where
-    show _ = "(a readonly chan exists here)"
-
-instance Show (WriteOnlyChan a) where
-    show _ = "(a writeonly chan exists here)"
