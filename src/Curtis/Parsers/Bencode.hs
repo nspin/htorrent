@@ -1,6 +1,6 @@
 module Curtis.Parsers.Bencode
     ( BValue(..)
-    , getBVal
+    , getBen
     , getString
     , getInt
     , getList
@@ -10,25 +10,16 @@ module Curtis.Parsers.Bencode
     , hashify
     ) where
 
-import           Curtis.Common
-
-import           Control.Monad
 import           Control.Applicative
+import           Control.Monad
 import           Crypto.Hash.SHA1
 import           Data.List
+import           Data.Attoparsec.ByteString.Char8 as P
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-import           Data.Attoparsec.ByteString.Char8 as P
 
-getBVal :: B.ByteString -> Maybe BValue
-getBVal = marse parseBen
-
--- A bencoded value
-data BValue = BString B.ByteString
-            | BInt Integer
-            | BList [BValue]
-            | BDict [(B.ByteString, BValue)]
-            deriving Show
+getBen :: B.ByteString -> Maybe BValue
+getBen = maybeResult . parse parseBen
 
 -- Four getters for extracting info from bvalues
 

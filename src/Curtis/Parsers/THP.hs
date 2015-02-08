@@ -22,30 +22,6 @@ import qualified Data.ByteString.Char8 as C
 import           Data.Attoparsec.ByteString
 import           Control.Lens
 
-data TRequest = TRequest { tracker    :: String
-                         , info_hash  :: B.ByteString
-                         , peer_id    :: B.ByteString
-                         , pport      :: Word
-                         , status     :: TStatus
-                         , compact    :: Bool
-                         , no_peer_id :: Bool
-                         , event      :: Maybe TEvent
-                         , ip         :: Maybe String
-                         , numwant    :: Maybe Word
-                         , key        :: Maybe B.ByteString
-                         , trackerid  :: Maybe String
-                         }
-  deriving Show
-
-data TStatus = TStatus { uploaded   :: Integer
-                       , downloaded :: Integer
-                       , left       :: Integer
-                       }
-  deriving Show
-
-data TEvent = Started | Stopped | Completed
-  deriving Show
-
 mkURL :: TRequest -> String
 mkURL TRequest { tracker    = tracker'
                , info_hash  = info_hash'

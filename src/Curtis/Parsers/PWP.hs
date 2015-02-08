@@ -1,26 +1,24 @@
 module PWP ( Handshake(..)
-           , getHand
+           , getShake
            , mkShake
            , Message(..)
            , getMsg
            , mkMsg
            ) where
 
-import           Data.Word
-import           Data.List
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as C
+import           Control.Applicative
 import           Data.Attoparsec.ByteString
 import           Data.Attoparsec.ByteString.Char8 as P
-import           Control.Applicative
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as C
+import           Data.List
+import           Data.Word
 
 getHand :: B.ByteString -> Maybe Handshake
-getHand = marse parseHand
+getHand = maybeResult . parse parseShake
 
 getMsg :: B.ByteString -> Maybe Message
-getMsg = marse parseMsg
-
-data Handshake = Handshake String B.ByteString B.ByteString
+getMsg = maybeResult . parse parseMsg
 
 parseHand = liftA3 Handshake (anyWord8 >>= P.take) (take 20) (take 20)
 
@@ -34,18 +32,6 @@ mkShake myid infhash = concat [ B.pack 19
 
 pstr :: B.ByteString
 pstr = C.pack "BitTorrent protocol"
-
-data Message = Keepalive
-             | Choke
-             | Unchoke
-             | Intersted
-             | Bored
-             | Have Int
-             | Bitfield B.ByteString
-             | Request Int Int Int
-             | Piece Int Int B.ByteString
-             | Cancel Int Int Int
-             deriving Show
 
 -- TODO: check with len
 parseMsg = do

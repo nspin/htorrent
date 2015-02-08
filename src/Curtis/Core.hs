@@ -5,46 +5,6 @@ import Control.Concurrent
 import Control.Concurrent.MVar
 import Data.Lens
 
-type T = ReaderT Download (StateT (MVar Tate) IO)
-
-
--- progress is a map from piece number to pairs of start-end bites of needed blocks
-data Tate = Tate { progress :: Map Integer [(Integer, Integer)]
-                 , --peers    :: [MVar Peer]
-                 }
-
-data Progress = Progress { pieces  :: Map Integer Bool
-                         , current :: Integer
-                         , cprog   :: [(Int, Int)]
-                         , tstat   :: TStatus
-                         }
-
--- infohash, pid, then pieces
-data Download = Download { tracker  :: String
-                         , myd      :: B.ByteString
-                         , metahash :: B.ByteString
-                         , myport   :: Integer
-                         , phashes  :: [B.ByteString]
-                         }
-
-data Peer = Peer { id       :: PeerID -- necessary? (yes for tracker thread decisions)
-                 , sock     :: Socket -- necessary?
-                 , relation :: Relation
-                 , status   :: (Map Integer Bool)
-                 , up       :: Word
-                 , down     :: Word
-                 , cchan    :: Command
-                 }
-
--- addr, port
-type PeerID = (String, String)
-
-data Relation = Relation { choked      :: Bool
-                         , choking     :: Bool
-                         , inerested   :: Bool
-                         , interesting :: Bool
-                         }
-
 meet :: PeerID -> P ()
 meet di@(addr, prt) = do
     (ihash, mid) <- asks infoT

@@ -21,50 +21,8 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import           Data.Attoparsec.ByteString.Char8 as P
 
-data MetaInfo = MetaInfo Torrent B.ByteString deriving Show
 
--- All of the information in a torren file that curtis is,
--- at this point, capable of caring about. Curtis will grow,
--- though, so this will expand at some point.
-data Torrent = Torrent
-    { announce      :: String
-    , announce_list :: Maybe [String]
-    , comment       :: Maybe String
-    , created_by    :: Maybe String
-    , creation_date :: Maybe Integer
-    , infoStuff     :: InfoStuff
-    }
-  deriving Show
-
-data InfoStuff = InfoStuff
-    { piece_length :: Integer
-    , pieces       :: [B.ByteString]
-    , private      :: Bool
-    , fileStuff    :: Either OneFile ManyFiles
-    }
-  deriving Show
-
-data OneFile = OneFile
-    { nameO   :: String
-    , lengthO :: Integer
-    , md5sumO :: Maybe B.ByteString
-    }
-  deriving Show
-
-data ManyFiles = ManyFiles
-    { nameM  :: String -- semanticaly different from OneFile name, so seperate.
-    , filesM :: [ManyFile]
-    }
-  deriving Show
-
-data ManyFile = ManyFile
-    { pathM  :: [String]
-    , lengthM :: Integer
-    , md5sumM :: Maybe B.ByteString -- (Word64, Word64)
-    }
-  deriving Show
-
-getMeta :: B.ByteString -> Maybe MetaInfo
+getMeta :: B.ByteString -> Either String MetaInfo
 getMeta bytes = liftM2 MetaInfo (marse parseBen bytes >>= getTorrent)
                                 (hashify bytes)
 
