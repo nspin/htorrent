@@ -6,6 +6,7 @@ module Curry.Tracker
 
 import           Curry.Types
 import           Curry.Parsers.Bencode
+import           Curry.Parsers.PWP
 
 import           Control.Concurrent
 import           Control.Concurrent.MVar
@@ -35,16 +36,13 @@ type Communication a = ReaderT GlobalEnv (ReaderT CommEnv (StateT CommSt IO a))
 
 track :: Communication ()
 track = do
-    
-    
 
 mkURL :: Travent -> Communication String
 mkURL event = do
-    MetaInfo{..} <- asks metaInfo
+    CommEnv MetaInfo{..} pieceMap <- ask
     CommEnv{..} <- lift ask
-    ups <- 
-    CommSt{..} <- lift $ lift get     
-    
+    CommSt{..} <- lift $ lift get
+
     announce trackers ++ "?" ++ intercalate "&"
       ( catMaybes [ fmap (("trackerid=" ++) . urifyBS) trackerId
                   , fmap (("event="     ++) . show   ) event
@@ -59,6 +57,42 @@ mkURL event = do
         , "left="       ++ show (size - downloaded)
         ]
       )
+
+hearPeers :: GlobalEnv -> ChuteIn Peer -> (Socket, SockAddr) -> IO ()
+
+beFriend :: GlobalEnv -> ChuteIn Peer -> (Socket, SockAddr) -> IO ()
+beFriend GlobalEnv{..} chute (sock, _) = do
+    sendAll myShake
+    bytes <- revc 4096
+    case getShake bytes of
+        Left str -> putStrLn str
+        Right Handshake{..} -> do
+            return () -- check to make sure its valid
+            let status' = newMVar $ Status True True False False
+                (has', has) = newMView
+                (has', has) = newCount
+                (has', has) = newCount
+            putChute chute $ Peer sock status' has up down
+            go 
+  where go = do
+    bytes <- recv sock 4096
+    case getMessage bytes of
+        Left str -> putStrLn str
+        Right msg -> do
+            case msg of
+                Keepalive -> return ()
+                Choke -> modifyMVar status' $ \s -> s { choked = True }
+                Unchoke -> modifyMVar status' $ \s -> s { choked = False }
+                Interested -> modifyMVar status' $ \s -> s { interested = True }
+                Bored -> modifyMVar status' $ \s -> s { interested = False }
+                Have ix -> modifyMCtrl has' (insert ix True)
+                Bitfield m -> modifyMCtrl has' $ M.union m
+                Request ix off len -> putStrLn ("Peer requested chunk: " ++ show ix ++ ", " show off ++ ", " ++ show len)
+                Piece ix off bytes -> putStrLn ("Got chunk: " ++ show ix ++ ", " show off)
+                Cancel ix off len -> putStrLn ("Peer canceled chunk: " ++ show ix ++ ", " show off ++ ", " ++ show len)
+            go
+
+---------------------------------------------------------------------
 
 urifyBS :: B.ByteString -> String
 urifyBS = concatMap urify8 . B.unpack
@@ -120,7 +154,7 @@ instance Show Travent where
 --     print resp
 
 --     threadDelay interval
-    
+
 -- -- parseUncompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
 -- -- parseUncompressedPeers = fmap Left . (getList >=> mapM (getDict >=> \d ->
 -- --     do peer_id' <- lookup "peer id" d >>= getString
@@ -134,5 +168,5 @@ instance Show Travent where
 -- --                                  , fromIntegral e * 256 + fromIntegral f
 -- --                                  )
 
--- mkURL :: 
+-- mkURL ::
 

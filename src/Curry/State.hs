@@ -1,16 +1,4 @@
-module Curry.State
-    ( ChuteIn
-    , ChuteOut
-    , newChutes
-    , putChute
-    , takeChute
-    , Config
-    , GlobalEnv
-    , CommEnv
-    , CommSt
-    , BrainEnv
-    , BrainSt
-    ) where
+module Curry.State where
 
 import           Curry.Parsers.Torrent
 
@@ -21,33 +9,6 @@ import qualified Data.ByteString as B
 import qualified Data.Map as M
 import           Network.Socket
 import           System.IO
-
-----------------------------------------
--- CHUTES
-----------------------------------------
-
--- Simple wrappers around an MVar
-data ChuteIn  a = ChuteIn  (MVar a) deriving Show
-data ChuteOut a = ChuteOut (MVar a) deriving Show
-
-newChutes :: IO (ChuteIn a, ChuteOut a)
-newChutes = do
-    mvar <- newMVar []
-    return (ChuteIn mvar, ChuteOUt mvar)
-
--- These are thread safe because ALL threads modifying the wrapped mvars
--- will use a single take and single put, so they are guarenteed to be atomic.
-
-putChute :: ChuteIn a -> a -> IO ()
-putChute (ChuteIn mvar) x = do
-    xs <- takeMVar mvar
-    putMVar mvar (x:xs)
-
-takeChute :: ChuteOut a -> IO [a]
-takeChute (ChuteOut mvar) = do
-    xs <- takeMVar mvar
-    putMVar mvar []
-    return xs
 
 ----------------------------------------
 -- COMMON TO THE ENTIRE INSANCE
@@ -61,28 +22,39 @@ data Config = Config
 data GlobalEnv = GlobalEnv
     { metaInfo :: MetaInfo
     , pieceMap :: MVar (M.Map Integer (Maybe  Handle))
+    , totalUp  :: CountView Integer -- tally of total downloaded
     }
 
 ----------------------------------------
--- SPECIFIC TO COMMUNICATION THREADS
+-- SPECIFIC TO COMMUNICATION THREAD
 ----------------------------------------
 
 -- Environment for a variable
 data CommEnv = CommEnv
-    { port       :: Integer
-    , pid        :: B.ByteString
-    , key        :: B.ByteString
+    { port       :: Integer -- port listening on
+    , pid        :: B.ByteString -- out peer id (random)
+    , key        :: B.ByteString -- our key (random)
     , pids       :: MVar [B.ByteString] -- peers that have been connected to so far
-    , commUps    :: ChuteIn Integer
-    , commDowns  :: ChuteIn Integer
+    , peerIn     :: ChuteIn Peer
     } deriving Show
 
 data CommSt = CommSt
-    { trackerID   :: B.ByteString
-    , interval    :: Integer
-    , minIntervel :: Integer
-    , downloaded  :: Integer
-    , uploaded    :: Integer
+    { trackerID   :: B.ByteString -- our tracker id
+    , interval    :: Integer -- from tracker
+    , minIntervel :: Integer -- from tracker
+    }
+
+----------------------------------------
+-- SPECIFIC TO FRIENDHSIP THREADS
+----------------------------------------
+
+data FriendEnv = FriendEnv
+    { status'  :: MVar Status
+    , has'     :: MCtrl (M.Map Integer Bool)
+    , up'      :: CountCtrl Integer
+    , down'    :: CountCtrl Integer
+    , chunks'  :: ChuteOut [(Chunk, B.ByteString)]
+    , totalUp' :: CountCtrl Integer -- tally of total uploaded (shared with
     }
 
 ----------------------------------------
@@ -90,9 +62,8 @@ data CommSt = CommSt
 ----------------------------------------
 
 data BrainEnv = BrainEnv
-    { peerOut    :: ChuteIn Peer
-    , brainUps   :: ChuteOut Integer
-    , brainDowns :: ChuteOut Integer
+    { peerOut    :: ChuteOut Peer
+    , chunks     :: ChuteIn [(Chunk, B.ByteString)]
     }
 
 data BrainSt = BrainSt
@@ -105,10 +76,9 @@ data BrainSt = BrainSt
 data Peer = Peer
     { socket  :: Socket
     , status  :: MVar Status
-    , up      :: ReadOnlyMVar Integer
-    , has     :: ReadOnlyMVar (M.Map Integer Bool)
-    , chunks  :: ChuteIn [(Chunk, B.ByteString)]
-    , close   :: MVar ()
+    , has     :: MView (M.Map Integer Bool)
+    , up      :: CountView Integer
+    , down    :: CountView Integer
     } deriving Show
 
 data Chunk = Chunk
@@ -120,8 +90,8 @@ data Chunk = Chunk
 data Status = Status
     { choked      :: Bool
     , choking     :: Bool
-    , inerested   :: Bool
     , interesting :: Bool
+    , interested  :: Bool
     } deriving Show
 
 ----------------------------------------
