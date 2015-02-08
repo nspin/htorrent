@@ -63,6 +63,7 @@ torpify bytes = do
          <*> trackers
          <*> return funfo
          <*> mplus one many
+         <*> (leekup "piece length" info >>= getInt)
          <*> fmap (M.fromList . zip [0..] . map Right) pieces
          <%> 0
 

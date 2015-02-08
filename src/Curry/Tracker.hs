@@ -30,22 +30,27 @@ import           Data.Maybe
 import qualified Network.Wreq as W
 import           Prelude hiding (GT)
 
+-- A tracker event
+data Travent = Started | Stopped | Complete deriving Show
+
 -- Regularly gets updated info (and keepalives) from tracker,
 -- spawing new processes for each new peer reported and adding
 -- information about the processes to ST for the brain module.
 
-askTrack :: Global -> Tomp -> AcidState Tacid -> IO ()
-askTrack Global{..} Tomp{..} acid = forever $ do
+-- TODO: renew and use this info (StateT (interval, trackerId, peersAddedSoFar))
+-- data TompE = TompE
+--     { interval  :: Int
+--     , trackerId :: Maybe B.ByteString
+--     , peerCan   :: Chan Peer
+--     } deriving Show
+
+askTrack :: Global -> AcidState Tacid -> Chan Peer -> IO ()
+askTrack Global{..} acid peerCan = forever $ do
 
     SP{..} <- query' acid AskSP
 
-    -- Update uploaded from channel
-    up <- getChanContents upChan >>= (update acid . AddUps)
-
     let url = announce (torrent $ metainfo) ++ "?" ++ intercalate "&"
-              ( catMaybes [ fmap (("numwant="   ++) . show   ) numwant
-                          , fmap (("trackerid=" ++) . urifyBS) trackerId
-                          ]
+              ( maybeToList $ fmap (("trackerid=" ++) . urifyBS) trackerId
              ++ [ "info_hash="  ++ urifyBS (info_hash metainfo)
                 , "peer_id="    ++ urifyBS id
                 , "port="       ++ show portM
@@ -78,6 +83,8 @@ askTrack Global{..} Tomp{..} acid = forever $ do
 --   where aux [a, b, c, d, e, f] = ( intercalate "." $ map show [a, b, c, d]
 --                                  , fromIntegral e * 256 + fromIntegral f
 --                                  )
+
+mkURL :: 
 
 urifyBS :: B.ByteString -> String
 urifyBS = concatMap urify8 . B.unpack

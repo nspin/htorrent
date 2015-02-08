@@ -35,13 +35,9 @@ data Global = Global
 
 -- [To]rrent te[mp]orary state and environment
 
-data TompE = TompE
-    { interval  :: Int
-    , trackerId :: Maybe B.ByteString
-    , peerCan   :: Chan Peer
-    } deriving Show
+-- TODO: env only has >> peerCan :: Chan Peer
 
-data TompS = TompS
+data Tomp = Tomp
     { peers     :: [Peer]
     , chunkNum  :: Int
     , chunkProg :: M.Map Chunk B.ByteString
@@ -49,22 +45,17 @@ data TompS = TompS
 
 -- Information about a specific peer. Always exists in an MVar
 data Peer = Peer
-    { peerId   :: PeerID
+    { peerId   :: B.ByteString
     , channel  :: MVar Message
     , mstuff   :: PeerMut
-    } deriving Show
-
-data PeerID = PeerID
-    { addr  :: String
-    , pport :: String
     } deriving Show
 
 data PeerMut = PeerMut
     { up     :: MVar Int
     , down   :: MVar Int
     , has    :: MVar (M.Map Int Bool)
-    , status :: MVar Status
     , chunks :: Chan [(Chunk, B.ByteString)]
+    , status :: MVar Status
     } deriving Show
 
 data Chunk = Chunk
@@ -88,6 +79,7 @@ data Torp = Torp
     , trackers  :: Trackers
     , funfo     :: Funfo
     , fileDesc  :: FileDesc
+    , pieceLen  :: Int
     , pieceMap  :: M.Map Int (Either B.ByteString B.ByteString)
     , uploaded  :: Int
     } deriving (Eq, Ord, Read, Show, Data, Typeable)
@@ -121,6 +113,25 @@ askTorp = ask
 putTorp :: Torp -> Update Torp ()
 putTorp = put
 
+mkURL :: Global -> Maybe B.ByteString -> Maybe Travent -> Query Torp String
+mkURL GLobal{..} trackerID event = fmap urlify ask
+  where urlify Torp{..} = announce (torrent $ metainfo) ++ "?" ++ intercalate "&"
+              ( maybeToList $ fmap (("trackerid=" ++) . urifyBS) trackerId
+             ++ [ "peer_id="    ++ urifyBS id
+                , "port="       ++ show port
+                , "numwant="    ++ show minPeers
+                , "key="        ++ urifyBS key
+
+                , "info_hash="  ++ urifyBS infoHash
+                , "uploaded="   ++ show uploaded
+                , "downloaded=" ++ show downloaded
+                , "left="       ++ show (total - downloaded)
+                ]
+              )
+          where
+            downloaded = pieceLen * M.size (M.filter isRight pieceMap)
+            total = pieceLen * M.size pieceMap
+
 ----------------------------------------
 -- CETERA
 ----------------------------------------
@@ -144,4 +155,4 @@ $(deriveSafeCopy 0 'base ''Trackers)
 $(deriveSafeCopy 0 'base ''FileDesc)
 $(deriveSafeCopy 0 'base ''FileInfo)
 
-$(makeAcidic ''Torp ['askTorp, 'putTorp])
+$(makeAcidic ''Torp ['askTorp, 'putTorp, mkURL'])
