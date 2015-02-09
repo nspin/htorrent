@@ -86,8 +86,8 @@ data Pear = Pear
     , status  :: Status
     , lastMsg :: UnixTime
     , context :: Context
-    , to      :: S.Seq Message
-    , from    :: S.Seq Message
+    , to      :: Queue Message
+    , from    :: Queue Message
     } deriving Show
 
 data Status = Status
@@ -96,6 +96,16 @@ data Status = Status
     , interesting :: Bool
     , interested  :: Bool
     } deriving Show
+
+data Queue a = Queue [a] [a]
+
+enqueue :: a -> Queue a -> Queue a
+enqueue x (Queue read write) = Queue read (x:write)
+
+dequeue :: Queue a -> (Maybe a, Queue a)
+dequeue q@(Queue []     []) = (Nothing, q)
+dequeue   (Queue []     ys) = let x:xs = reverse ys in (x, Queue xs [])
+dequeue   (Queue (x:xs) ys) = (x, Queue xs ys)
 
 -- Basically TChan with no repeats and with 'remove'
 newtype TShan a = TShan (TVar [a]) deriving Show
