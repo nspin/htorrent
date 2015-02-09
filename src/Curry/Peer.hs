@@ -31,7 +31,7 @@ import           System.Timeout
 maybeAdd :: Env -> Addr -> STM (Maybe Peer)
 maybeAdd env theirAddr = do
     peers' <- readTVar $ peers env
-    if elem theirAddr . map addr $ peers'
+    if elem theirAddr $ map addr peers'
      then return Nothing
      else do
         newGuy <- newPeer theirAddr
@@ -40,10 +40,10 @@ maybeAdd env theirAddr = do
 
 -- Listen on a virtual port
 react :: Env -> Peer -> IO ()
-react env peer = forever $ do
+react env peer = do
     msg <- atomically . readTChan $ from peer
     time <- getUnixTime
-    atomically $ do
+    atomically $ status peer >=~ \s -> do
         modifyTMVar (status peer) $ \s -> s { lastMsg = time }
         writeTChan (sayChan env) $ show msg
         case msg of
@@ -54,16 +54,9 @@ react env peer = forever $ do
             Bored      -> modifyTMVar s $ setInteresting False
             Have ix    -> modifyTMVar s $ opHas (M.insert ix True)
             Bitfield m -> modifyTMVar s $ opHas (M.union m)
-            Request c  -> let good bytes = do
-                                writeTChan (to peer) $ Piece (bytes <$ c)
-                                modifyTVar (hist peer) $ addDown (toInteger $ B.length bytes)
-                              bad = return ()
-                          in  choked <$> readTMVar (status peer)
-                               >>= (`unless` writeTChan (takeChan env) (c, good, bad))
-            Piece c    -> let good len = modifyTVar (hist peer) $ addUp len
-                              bad = return ()
-                          in  writeTChan (giveChan env) (c, good, bad)
-            Cancel c   -> return ()
+            Request c  -> writeTShan (takes env) (c, peer)
+            Piece c    -> writeTShan (gives env) (c, peer)
+            Cancel c   -> rmvShan    (takes env) (c, peer)
   where
     s = status peer
 
@@ -91,16 +84,30 @@ play env p@Peer{..} sock = do
 
                 -- Initial peer status
                 itime <- getUnixTime
-                let startStatus = Status M.empty True True False False itime (someCtxt theirShake)
 
-                -- Initialize peer status
-                atomically $ putTMVar status startStatus
+                atmomically $ do
+                    
+                    to <- newTChan
+                    from <- newTChan
 
-                forkIO $ react env p
+                    let startPear = Pear M.empty
+                                         startStatus
+                                         itime
+                                         (someCtxt theirShake)
+                                         to
+                                         from
 
-                atomically $ readTVar (progress env) >>= (writeTChan to . Bitfield)
+                    putTMVar pear startPear
+                    curr <- readTVar $ progress env
+                    writeTChan to $ Bitfield curr
 
-                catch (void . concurrently mouth $ evalStateT ears rest)
+                let go = void $ traverse Concurrently
+                              [ forever mouth
+                              , void $ runStateT (forever ears) rest
+                              , forever $ react env p
+                              ]
+
+                catch (void go)
                     . (const :: IO () -> SomeException -> IO ())
                     . void
                     . atomically
@@ -109,15 +116,22 @@ play env p@Peer{..} sock = do
 
     -- Listen to outbound channel and send.
     -- Will make more descriptive exceptions soon.
-    mouth = forever $ (atomically $ readTChan to) >>= (safeSend sock . mkMsg)
+    mouth = (atomically $ readTChan to) >>= (safeSend sock . mkMsg)
 
     -- Listen on socket and react.
     -- Parent will catch pattern match fail in fromJust, so it's safe.
-    ears = forever $ recv' sock parseMsg >>= (liftIO . atomically . writeTChan from)
+    ears = recv' sock parseMsg >>= (liftIO . atomically . writeTChan from)
 
 ----------------------------------------
 -- HELPERS
 ----------------------------------------
+
+(>=~) :: TMVar a -> (a -> STM ()) -> STM ()
+m >=~ f = do
+    val <- tryTakeMVar m
+    case val of
+        Nothing -> return ()
+        Just x -> f x
 
 safeSend :: Socket -> B.ByteString -> IO ()
 safeSend sock bytes = do
@@ -140,10 +154,10 @@ ourShake :: Env -> Handshake
 ourShake env = Handshake "BitTorrent protocol" (myCtxt $ config env) (infoHash $ metaInfo env) (ourId env)
 
 newPeer :: Addr -> STM Peer
-newPeer theirAddr = Peer theirAddr <$> newTVar (Hist 0 0)
-                                   <*> newEmptyTMVar
-                                   <*> newTChan
-                                   <*> newTChan
+newPeer theirAddr = Peer theirAddr <$> newTVar (Hist 0 0) <*> newEmptyTMVar
+
+newStatus :: Status
+newStatus = Status False False False False
 
 -- May never use (but rather have a 'last heard from' field in peer status
 timeout_ :: Int -> IO () -> IO ()

@@ -1,14 +1,15 @@
 {-# LANGUAGE RecordWildCards, FlexibleInstances, DeriveDataTypeable#-}
 
 module Curry.Common
-    ( Chunk(..)
+    ( PieceMap
+    , Chunk(..)
     , Addr(..)
     , Noitpecxe(..)
-    , Error
     , modifyTMVar
     , extract
     , eitherToMaybe
     , maybeToEither
+    , (-=-)
     , (<%>)
     , (<+>)
     --
@@ -32,6 +33,7 @@ module Curry.Common
 
 import qualified Data.ByteString as B
 import           Data.Typeable
+import qualified Data.Map as M
 import           Control.Applicative
 import           Control.Concurrent.Chan
 import           Control.Concurrent.STM
@@ -42,15 +44,31 @@ import           Control.Monad
 -- TYPES
 ----------------------------------------
 
+type PieceMap = M.Map Integer Bool
+
 -- Information about a part of a piece
 data Chunk a = Chunk
     { index :: Integer
     , start :: Integer
     , body  :: a
-    } deriving (Show, Eq, Ord)
+    } deriving (Show, Ord)
 
 instance Functor Chunk where
     fmap f (Chunk i s b) = Chunk i s (f b)
+
+instance Chunkable a => Eq (Chunk a) where
+    x == y =  index x == index y
+           && start x == start y
+           && body x -=- body y
+
+class Chunkable a where
+    (-=-) :: Chunkable a => a -> a -> Bool
+
+instance Chunkable Integer where
+    (-=-) = (==)
+
+instance Chunkable B.ByteString where
+    x -=- y = B.length x == B.length y
 
 data Addr = Addr
     { addrIp   :: String
@@ -60,8 +78,6 @@ data Addr = Addr
 data Noitpecxe = Noitpecxe String deriving (Show, Typeable)
 
 instance Exception Noitpecxe
-
-type Error = Either String
 
 ----------------------------------------
 -- UTILS

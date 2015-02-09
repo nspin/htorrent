@@ -2,8 +2,8 @@
 
 module Curry.Tracker
     ( Travent(..)
-    -- , CommSt(..)
     , mkURL
+    , format
     ) where
 
 import           Curry.Common
@@ -33,7 +33,6 @@ import           Data.Maybe
 import           Data.Word
 import qualified Network.Wreq as W
 
-mkURL = ((fmap format .) .) . mkURL'
 -- data CommSt = CommSt
 --     { trackerIdST   :: Maybe B.ByteString -- our tracker id
 --     , intervalST    :: Integer -- from tracker
@@ -69,8 +68,8 @@ data URL = URL
 format :: URL -> String
 format URL{..} = base ++ "?" ++ intercalate "&" [ k ++ "=" ++ v | (k, v) <- queries ]
 
-mkURL' :: Env -> Maybe Travent -> Maybe B.ByteString -> STM URL
-mkURL' env event trackid = do
+mkURL :: Env -> Maybe Travent -> Maybe B.ByteString -> STM URL
+mkURL env event trackid = do
 
     peers' <- readTVar peers
     ups <- mapM (fmap up . readTVar . hist) peers'
