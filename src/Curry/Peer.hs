@@ -75,7 +75,6 @@ play env p@Peer{..} sock = do
 
         -- Handshake
         safeSend sock . mkShake $ ourShake env
-        -- ISSUE: RECV DOESN'T GET ANYTHING WHEN USED HERE
         (theirShake, rest) <- runStateT (recv' sock parseShake) B.empty
 
         when (theirShake == ourShake env) $ do
@@ -89,7 +88,7 @@ play env p@Peer{..} sock = do
 
                 forkIO $ react env p
 
-                catch (void . concurrently mouth $ evalStateT ears rest)
+                catch (void . concurrently mouth $ forever $ recv sock 4096 >>= print)-- $ evalStateT ears rest)
                     . (const :: IO () -> SomeException -> IO ())
                     . void
                     . atomically
@@ -126,7 +125,7 @@ recv' sock parser = aux $ parse parser
     getSome = liftIO (recv sock 4096) >>=  put
 
 ourShake :: Env -> Handshake
-ourShake env = Handshake "BitTorrent protocol" (myCtxt $ config env) (ourId env) (infoHash $ metaInfo env)
+ourShake env = Handshake "BitTorrent protocol" (myCtxt $ config env) (infoHash $ metaInfo env) (ourId env)
 
 newPeer :: Addr -> STM Peer
 newPeer theirAddr = Peer theirAddr <$> newTVar (Hist 0 0)

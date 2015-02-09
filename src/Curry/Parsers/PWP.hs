@@ -35,8 +35,8 @@ import           Prelude hiding (take)
 data Handshake = Handshake
     { protocol :: String
     , someCtxt :: Context
-    , someId   :: B.ByteString
     , someHash :: B.ByteString
+    , someId   :: B.ByteString
     } deriving Show
 
 instance Eq Handshake where
@@ -56,9 +56,9 @@ data Message = Keepalive
              | Bored
              | Have Integer
              | Bitfield (M.Map Integer Bool)
-             | Request Integer Integer Integer
-             | Piece Integer Integer B.ByteString
-             | Cancel Integer Integer Integer
+             | Request (Chunk Integer)
+             | Piece (Chunk B.ByteString)
+             | Cancel (Chunk Integer)
              deriving Show
 
 ----------------------------------------
@@ -93,9 +93,9 @@ parseBody = endOfInput *> return Keepalive <|> do
         3 -> return Bored
         4 -> Have <$> parseInt
         5 -> (Bitfield . unBitField) <$> takeByteString
-        6 -> liftA3 Request parseInt parseInt parseInt
-        7 -> liftA3 Piece parseInt parseInt takeByteString
-        8 -> liftA3 Cancel parseInt parseInt parseInt
+        6 -> liftA3 (((Request .).) . Chunk) parseInt parseInt parseInt
+        7 -> liftA3 (((Piece   .).) . Chunk) parseInt parseInt takeByteString
+        8 -> liftA3 (((Cancel  .).) . Chunk) parseInt parseInt parseInt
 
 ----------------------------------------
 -- MAKERS
@@ -104,8 +104,8 @@ parseBody = endOfInput *> return Keepalive <|> do
 mkShake :: Handshake -> B.ByteString
 mkShake Handshake{..} = B.singleton 19 `B.append` C.pack protocol
                                        `B.append` context'
-                                       `B.append` someId
                                        `B.append` someHash
+                                       `B.append` someId
   where context' = B.pack $ replicate 8 0
 
 -- Makes a lenght-prefixed message
@@ -121,16 +121,19 @@ mkInt int = B.pack [ fromIntegral $ 255 .&. shiftR int part
                       ]
 
 mkBody :: Message -> B.ByteString
-mkBody (Keepalive     ) = B.empty
-mkBody (Choke         ) = B.singleton 0
-mkBody (Unchoke       ) = B.singleton 1
-mkBody (Interested    ) = B.singleton 2
-mkBody (Bored         ) = B.singleton 3
-mkBody (Have     x    ) = 4 `B.cons` mkInt x
-mkBody (Bitfield x    ) = 5 `B.cons` bitField x
-mkBody (Request  x y z) = 6 `B.cons` (B.concat . map mkInt) [x, y, z]
-mkBody (Piece    x y z) = 7 `B.cons` B.concat [mkInt x, mkInt y, z]
-mkBody (Cancel   x y z) = 8 `B.cons` (B.concat . map mkInt) [x, y, z]
+
+mkBody Keepalive  = B.empty
+mkBody Choke      = B.singleton 0
+mkBody Unchoke    = B.singleton 1
+mkBody Interested = B.singleton 2
+mkBody Bored      = B.singleton 3
+
+mkBody (Have     x) = 4 `B.cons` mkInt x
+mkBody (Bitfield x) = 5 `B.cons` bitField x
+
+mkBody (Request Chunk{..}) = 6 `B.cons` (B.concat . map mkInt) [index, start, body]
+mkBody (Piece   Chunk{..}) = 7 `B.cons` B.concat [mkInt index, mkInt start, body]
+mkBody (Cancel  Chunk{..}) = 8 `B.cons` (B.concat . map mkInt) [index, start, body]
 
 ----------------------------------------
 -- UTILS (will grow with Context)

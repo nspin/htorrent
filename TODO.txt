@@ -3,5 +3,4 @@ still acid?
 
 ip type??
 20 byte type?
-
-SOON: change from Addr to SockAddr
+change from Addr to SockAddr?

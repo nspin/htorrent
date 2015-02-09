@@ -1,13 +1,12 @@
 module Curry.Types
     ( Env(..)
     , Config(..)
+    , Pieces(..)
+    , Progress(..)
     , Peer(..)
     , Hist(..)
     , Status(..)
-    , PieceNode(..)
-    , Progress(..)
-    , Chunk(..)
-    , simplify
+    , done
     ) where
 
 import           Curry.Common
@@ -35,15 +34,27 @@ data Env = Env
     , ourId     :: B.ByteString
     , ourKey    :: B.ByteString
     , metaInfo  :: MetaInfo
-    , ourPieces :: TVar (M.Map Integer PieceNode)
+    , ourPieces :: Pieces
     , peers     :: TVar [Peer]
     } deriving Show
 
 data Config = Config
-    { minPeers :: Integer
-    , maxPeers :: Integer
+    { maxSend  :: Int
+    , maxRecv  :: Int
+    , minPeers :: Int
+    , maxPeers :: Int
     , myCtxt   :: Context
     } deriving Show
+
+data Pieces = Pieces
+    { progress  :: TVar (M.Map Integer Progress)
+    , take      :: TChan      (Chunk Integer, B.ByteString -> IO (), IO ())
+    , takeBin   :: TVar (MVar (Chunk Integer, B.ByteString -> IO (), IO ()))
+    , give      :: TChan      (Chunk B.ByteString, Integer -> IO (), IO ())
+    , giveBin   :: TVar (MVar (Chunk B.ByteString, Integer -> IO (), IO ()))
+    } deriving Show
+
+data Progress = None | Some | All deriving Show
 
 ---------------------------------
 
@@ -55,6 +66,9 @@ data Peer = Peer
     , to      :: TChan Message
     , from    :: TChan Message
     } deriving Show
+
+instance Eq Peer where
+    a == b = addr a == addr b
 
 data Hist = Hist
     { up   :: Integer
@@ -71,31 +85,9 @@ data Status = Status
     , context     :: Context
     } deriving Show
 
----------------------------------------------
-
-data PieceNode = PieceNode
-    { md5sum   :: Maybe B.ByteString
-    , sha1     :: B.ByteString
-    , progress :: Progress
-    , take     :: Chan (Chunk, B.ByteString -> IO (), IO ())
-    , give     :: Chan (Integer, Integer, B.ByteString, Integer -> IO (), IO ())
-    } deriving Show
-
-data Progress = None | Some | All deriving Show
-
--- Information about a part of a piece
-data Chunk = Chunk
-    { index :: Integer
-    , start :: Integer
-    , end   :: Integer
-    } deriving (Show, Eq, Ord)
-
 ----------------------------------------
 -- UTILS
 ----------------------------------------
-
-simplify :: M.Map Integer PieceNode -> M.Map Integer Bool
-simplify = M.map (done . progress)
 
 done :: Progress -> Bool
 done All = True
