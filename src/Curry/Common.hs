@@ -49,6 +49,9 @@ data Chunk a = Chunk
     , body  :: a
     } deriving (Show, Eq, Ord)
 
+instance Functor Chunk where
+    fmap f (Chunk i s b) = Chunk i s (f b)
+
 data Addr = Addr
     { addrIp   :: String
     , addrPort :: String

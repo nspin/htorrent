@@ -36,12 +36,14 @@ test name = do
 
     let Right meta = getMeta file
 
-    a <- atomically . fmap (M.fromList . zip [0..])
-                    . sequence
-                    . replicate (length . pieces . info $ torrent meta)
-                    $ newTVar None
-    b <- newTVarIO []
-    c <- newChan
+    a <- atomically $ newTVar []
+    b <- atomically . newTVar
+                    . M.fromList
+                    . zip [0..]
+                    $ replicate (length . pieces . info $ torrent meta) False
+    c <- atomically $ newTChan
+    d <- atomically $ newTChan
+    e <- atomically $ newTChan
 
     let env = Env
                 (Config 0 0 30 55 Context)
@@ -52,8 +54,10 @@ test name = do
                 a
                 b
                 c
+                d
+                e
 
-    forkIO . forever $ readChan c >>= print
+    forkIO . forever $ (atomically $ readTChan e) >>= print
 
     print $ announce $ torrent meta
 

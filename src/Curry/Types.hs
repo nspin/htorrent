@@ -1,7 +1,6 @@
 module Curry.Types
     ( Env(..)
     , Config(..)
-    , Progress(..)
     , Peer(..)
     , Hist(..)
     , Status(..)
@@ -9,7 +8,8 @@ module Curry.Types
     , opHas
     , setChoked
     , setInteresting
-    , done
+    , addUp
+    , addDown
     ) where
 
 import           Curry.Common
@@ -37,9 +37,11 @@ data Env = Env
     , ourId     :: B.ByteString
     , ourKey    :: B.ByteString
     , metaInfo  :: MetaInfo
-    , ourPieces :: Pieces (TVar Progress)
     , peers     :: TVar [Peer]
-    , output    :: Chan String
+    , progress  :: TVar (Pieces Bool)
+    , giveChan  :: TChan (Chunk B.ByteString, Integer      -> STM (), STM ())
+    , takeChan  :: TChan (Chunk Integer     , B.ByteString -> STM (), STM ())
+    , sayChan   :: TChan String
     } deriving Show
 
 data Config = Config
@@ -49,11 +51,6 @@ data Config = Config
     , maxPeers :: Int
     , myCtxt   :: Context
     } deriving Show
-
-data Progress = None
-              | Some (TChan (Chunk B.ByteString, Integer      -> IO (), IO ()))
-              | All  (TChan (Chunk Integer     , B.ByteString -> IO (), IO ()))
-              deriving Show
 
 ---------------------------------
 
@@ -88,12 +85,11 @@ opHas          f s = s { has         = f (has s) }
 setChoked      x s = s { choked      = x         }
 setInteresting x s = s { interesting = x         }
 
+addUp   n h = h { up   = (up   h) + n }
+addDown n h = h { down = (down h) + n }
+
 ----------------------------------------
 -- UTILS
 ----------------------------------------
 
 type Pieces a = M.Map Integer a
-
-done :: Progress -> Bool
-done (All _)  = True
-done _        = False

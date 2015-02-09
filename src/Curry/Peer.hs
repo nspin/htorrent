@@ -43,19 +43,26 @@ react :: Env -> Peer -> IO ()
 react env peer = forever $ do
     msg <- atomically . readTChan $ from peer
     time <- getUnixTime
-    atomically . modifyTMVar (status peer) $ \s -> s { lastMsg = time }
-    writeChan (output env) $ show msg
-    case msg of
-        Keepalive  -> return ()
-        Choke      -> atomically $ modifyTMVar s $ setChoked True
-        Unchoke    -> atomically $ modifyTMVar s $ setChoked False
-        Interested -> atomically $ modifyTMVar s $ setInteresting True
-        Bored      -> atomically $ modifyTMVar s $ setInteresting False
-        Have ix    -> atomically $ modifyTMVar s $ opHas (M.insert ix True)
-        Bitfield m -> atomically $ modifyTMVar s $ opHas (M.union m)
-        Request c  -> return ()
-        Piece c    -> return ()
-        Cancel c   -> return ()
+    atomically $ do
+        modifyTMVar (status peer) $ \s -> s { lastMsg = time }
+        writeTChan (sayChan env) $ show msg
+        case msg of
+            Keepalive  -> return ()
+            Choke      -> modifyTMVar s $ setChoked True
+            Unchoke    -> modifyTMVar s $ setChoked False
+            Interested -> modifyTMVar s $ setInteresting True
+            Bored      -> modifyTMVar s $ setInteresting False
+            Have ix    -> modifyTMVar s $ opHas (M.insert ix True)
+            Bitfield m -> modifyTMVar s $ opHas (M.union m)
+            Request c  -> let good bytes = do
+                                writeTChan (to peer) $ Piece (bytes <$ c)
+                                modifyTVar (hist peer) $ addDown (toInteger $ B.length bytes)
+                              bad = return ()
+                          in  writeTChan (takeChan env) (c, good, bad)
+            Piece c    -> let good len = modifyTVar (hist peer) $ addUp len
+                              bad = return ()
+                          in  writeTChan (giveChan env) (c, good, bad)
+            Cancel c   -> return ()
   where
     s = status peer
 

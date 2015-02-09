@@ -13,6 +13,7 @@ import           Curry.Parsers.PWP
 import           Curry.Parsers.THP
 import           Curry.Parsers.Torrent
 
+import           Control.Applicative
 import           Control.Concurrent.STM
 import           Control.Lens
 import           Control.Monad
@@ -65,7 +66,7 @@ mkURL env event trackid = do
     peers' <- readTVar peers
     ups <- mapM (fmap up . readTVar . hist) peers'
     downs <- mapM (fmap down . readTVar . hist) peers'
-    have <- fmap (length . filter done) . mapM readTVar $ M.elems ourPieces
+    have <- (M.size . M.filter id) <$> readTVar progress
 
     return (announce torrent ++ "?" ++ intercalate "&"
       ( catMaybes [ fmap (("trackerid=" ++) . urifyBS) trackid
