@@ -6,6 +6,9 @@ module Curry.Types
     , Peer(..)
     , Hist(..)
     , Status(..)
+    , opHas
+    , setChoked
+    , setInteresting
     , done
     ) where
 
@@ -36,6 +39,7 @@ data Env = Env
     , metaInfo  :: MetaInfo
     , ourPieces :: Pieces
     , peers     :: TVar [Peer]
+    , output    :: Chan String
     } deriving Show
 
 data Config = Config
@@ -60,11 +64,11 @@ data Progress = None | Some | All deriving Show
 
 -- Information about a specific peer.
 data Peer = Peer
-    { addr    :: Addr
-    , hist    :: TVar Hist
-    , status  :: TMVar Status
-    , to      :: TChan Message
-    , from    :: TChan Message
+    { addr   :: Addr
+    , hist   :: TVar Hist
+    , status :: TMVar Status
+    , to     :: TChan Message
+    , from   :: TChan Message
     } deriving Show
 
 instance Eq Peer where
@@ -84,6 +88,10 @@ data Status = Status
     , lastMsg     :: UnixTime
     , context     :: Context
     } deriving Show
+
+opHas f s = s { has = f (has s) }
+setChoked x s = s { choked = x }
+setInteresting x s = s { interesting = x }
 
 ----------------------------------------
 -- UTILS

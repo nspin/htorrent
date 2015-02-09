@@ -27,6 +27,7 @@ import           Data.List.Split
 import qualified Data.Map as M
 import           Data.Word
 import           Prelude hiding (take)
+import           System.IO.Unsafe
 
 ----------------------------------------
 -- TYPES
@@ -77,7 +78,8 @@ ctxt _ = Context
 parseMsg = do
     len <- parseInt
     rest <- take $ fromInteger len
-    case maybeResult (parse parseBody rest) of
+    -- unsafePerformIO $ print (maybeResult $ parse takeByteString rest) >> return (return ())
+    case maybeResult (feed (parse parseBody rest) B.empty) of
         Nothing -> fail "done"
         Just msg -> return msg
 
@@ -117,8 +119,8 @@ mkMsg msg = (B.singleton . fromInteger . toInteger $ B.length body) `B.append` b
 -- Oversized ints are not handled.
 mkInt :: Integer -> B.ByteString
 mkInt int = B.pack [ fromIntegral $ 255 .&. shiftR int part
-                      | part <- [24, 16, 8, 0]
-                      ]
+                   | part <- [24, 16, 8, 0]
+                   ]
 
 mkBody :: Message -> B.ByteString
 

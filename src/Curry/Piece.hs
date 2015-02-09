@@ -1,4 +1,4 @@
-module Curry.Components.Pieces
+module Curry.Pieces
     where
 
 import Curry.Types

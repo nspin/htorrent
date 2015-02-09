@@ -44,18 +44,20 @@ react env peer = forever $ do
     msg <- atomically . readTChan $ from peer
     time <- getUnixTime
     atomically . modifyTMVar (status peer) $ \s -> s { lastMsg = time }
-    print msg
-    -- case msg of
-    --     Keepalive -> return ()
-    --     Choke -> return ()
-    --     Unchoke -> return ()
-    --     Interested -> return ()
-    --     Bored -> return ()
-    --     Have ix -> return ()
-    --     Bitfield m -> return ()
-    --     Request ix off len -> return ()
-    --     Piece ix off bytes -> return ()
-    --     Cancel ix off len -> return ()
+    writeChan (output env) $ show msg
+    case msg of
+        Keepalive  -> return ()
+        Choke      -> atomically $ modifyTMVar s $ setChoked True
+        Unchoke    -> atomically $ modifyTMVar s $ setChoked False
+        Interested -> atomically $ modifyTMVar s $ setInteresting True
+        Bored      -> atomically $ modifyTMVar s $ setInteresting False
+        Have ix    -> atomically $ modifyTMVar s $ opHas (M.insert ix True)
+        Bitfield m -> atomically $ modifyTMVar s $ opHas (M.union m)
+        Request c  -> return ()
+        Piece c    -> return ()
+        Cancel c   -> return ()
+  where
+    s = status peer
 
 -- Serve on out port
 beThere :: Env -> IO ()
@@ -88,7 +90,7 @@ play env p@Peer{..} sock = do
 
                 forkIO $ react env p
 
-                catch (void . concurrently mouth $ forever $ recv sock 4096 >>= print)-- $ evalStateT ears rest)
+                catch (void . concurrently mouth $ evalStateT ears rest)
                     . (const :: IO () -> SomeException -> IO ())
                     . void
                     . atomically

@@ -2,10 +2,10 @@ module Main
     ( main
     ) where
 
-import Curry.State
+import Curry.Types
 
 main :: IO ()
 main = undefined
 
--- config :: Global
+-- config :: Config
 -- config = 

@@ -18,6 +18,7 @@ import qualified Data.Map as M
 import           Data.Maybe
 import           Control.Applicative
 import           Control.Concurrent
+import           Control.Concurrent.Chan
 import           Control.Concurrent.STM
 import           Control.Lens hiding (Context)
 import           Control.Monad.Reader
@@ -27,11 +28,14 @@ import qualified Network.Socket as S
 import qualified Network.Socket.ByteString as SB
 import qualified Network.Wreq as W
 
+-- THIS CURRENTLY WORKS
+
 test name = do
 
     file <- B.readFile name
     a <- Pieces <$> newTVarIO M.empty <*> newTChanIO <*> newTVarIO undefined <*> newTChanIO <*> newTVarIO undefined
     b <- newTVarIO []
+    c <- newChan
 
     let Right meta = getMeta file
         env = Env
@@ -42,6 +46,9 @@ test name = do
                 meta
                 a
                 b
+                c
+
+    forkIO . forever $ readChan c >>= print
 
     print $ announce $ torrent meta
 
@@ -50,21 +57,7 @@ test name = do
                  (W.get url)
                   >>= extract (getBValue >=> getResp)
 
-    -- print resp
-
-    -- let x@Addr{..} = pears resp !! 3
-
-    -- print x
-
-    -- T.connect addrIp addrPort $ \(sock, _) -> do
-    --     print "YAY"
-    --     let shk = mkShake $ ourShake env
-    --     print shk
-    --     s <- SB.send sock shk
-    --     print s
-    --     r <- SB.recv sock 20
-    --     print r
-    --     print "done"
+    print $ length $ pieces $ info $ torrent meta
 
     added <- atomically $ mapM (maybeAdd env) $ pears resp
 
