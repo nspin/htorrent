@@ -58,7 +58,8 @@ react env peer = forever $ do
                                 writeTChan (to peer) $ Piece (bytes <$ c)
                                 modifyTVar (hist peer) $ addDown (toInteger $ B.length bytes)
                               bad = return ()
-                          in  writeTChan (takeChan env) (c, good, bad)
+                          in  choked <$> readTMVar (status peer)
+                               >>= (`unless` writeTChan (takeChan env) (c, good, bad))
             Piece c    -> let good len = modifyTVar (hist peer) $ addUp len
                               bad = return ()
                           in  writeTChan (giveChan env) (c, good, bad)
@@ -96,6 +97,8 @@ play env p@Peer{..} sock = do
                 atomically $ putTMVar status startStatus
 
                 forkIO $ react env p
+
+                atomically $ readTVar (progress env) >>= (writeTChan to . Bitfield)
 
                 catch (void . concurrently mouth $ evalStateT ears rest)
                     . (const :: IO () -> SomeException -> IO ())

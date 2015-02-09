@@ -1,4 +1,4 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards, TupleSections #-}
 
 module Curry.Tracker
     ( Travent(..)
@@ -33,6 +33,7 @@ import           Data.Maybe
 import           Data.Word
 import qualified Network.Wreq as W
 
+mkURL = ((fmap format .) .) . mkURL'
 -- data CommSt = CommSt
 --     { trackerIdST   :: Maybe B.ByteString -- our tracker id
 --     , intervalST    :: Integer -- from tracker
@@ -60,28 +61,36 @@ instance Show Travent where
 --             let check :: ReaderT Environment STM
 --             mapM (forkIO . meet) destinations
 
-mkURL :: Env -> Maybe Travent -> Maybe B.ByteString -> STM String
-mkURL env event trackid = do
+data URL = URL
+    { base    :: String
+    , queries :: [(String, String)]
+    } deriving Show
+
+format :: URL -> String
+format URL{..} = base ++ "?" ++ intercalate "&" [ k ++ "=" ++ v | (k, v) <- queries ]
+
+mkURL' :: Env -> Maybe Travent -> Maybe B.ByteString -> STM URL
+mkURL' env event trackid = do
 
     peers' <- readTVar peers
     ups <- mapM (fmap up . readTVar . hist) peers'
     downs <- mapM (fmap down . readTVar . hist) peers'
     have <- (M.size . M.filter id) <$> readTVar progress
 
-    return (announce torrent ++ "?" ++ intercalate "&"
-      ( catMaybes [ fmap (("trackerid=" ++) . urifyBS) trackid
-                  , fmap (("event="     ++) . show   ) event
+    return . URL (announce torrent) $
+      ( catMaybes [ fmap (("trackerid",) . urifyBS) trackid
+                  , fmap (("event"    ,) . show   ) event
                   ]
-     ++ [ "numwant="    ++ show minPeers
-        , "port="       ++ show (addrPort whoami)
-        , "peer_id="    ++ urifyBS ourId
-        , "key="        ++ urifyBS ourKey
-        , "info_hash="  ++ urifyBS infoHash
-        , "uploaded="   ++ show (sum ups)
-        , "downloaded=" ++ show (sum downs)
-        , "left="       ++ show (totalSize - toInteger have)
+     ++ [("numwant"   ,  show minPeers                    )
+        ,("port"      ,  show (addrPort whoami)           )
+        ,("peer_id"   ,  urifyBS ourId                    )
+        ,("key"       ,  urifyBS ourKey                   )
+        ,("info_hash" ,  urifyBS infoHash                 )
+        ,("uploaded"  ,  show (sum ups)                   )
+        ,("downloaded",  show (sum downs)                 )
+        ,("left"      ,  show (totalSize - toInteger have))
         ]
-      ))
+      )
 
   where
     Env{..} = env
