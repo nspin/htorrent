@@ -52,17 +52,3 @@ test name = do
     mapM_ (forkIO . meet env) $ catMaybes added
 
     forever $ threadDelay maxBound
-        -- hs = B.concat [ B.singleton 19
-        --               , C.pack "BitTorrent protocol"
-        --               , B.pack $ replicate 8 0
-        --               , infoHash meta
-        --               , C.pack "thisisjustalittltest"
-        --               ]
-
-    -- connect ip port $ \(s, _) -> do
-        -- print "CONNECTED"
-        -- send s hs
-        -- print "SENT"
-        -- print hs
-        -- them <- recv s 128
-        -- print them

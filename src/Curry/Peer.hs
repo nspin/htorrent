@@ -69,20 +69,13 @@ meet env peer = T.connect (addrIp $ addr peer)
                           (addrPort $ addr peer)
                           (play env peer . fst)
 
-safeSend :: Socket -> B.ByteString -> IO ()
-safeSend sock bytes = do
-    sent <- send sock bytes
-    when (sent /= B.length bytes) . throw $ Noitpecxe "not all sent"
-
-recv' :: Socket -> Parser r -> StateT B.ByteString IO r
-recv' sock parser = undefined
-
 -- The middleman between the peer and its corresponding socket
 play :: Env -> Peer -> Socket -> IO ()
 play env p@Peer{..} sock = do
 
         -- Handshake
         safeSend sock . mkShake $ ourShake env
+        -- ISSUE: RECV DOESN'T GET ANYTHING WHEN USED HERE
         (theirShake, rest) <- runStateT (recv' sock parseShake) B.empty
 
         when (theirShake == ourShake env) $ do
@@ -109,24 +102,28 @@ play env p@Peer{..} sock = do
 
     -- Listen on socket and react.
     -- Parent will catch pattern match fail in fromJust, so it's safe.
-    ears :: StateT B.ByteString IO ()
     ears = forever $ recv' sock parseMsg >>= (liftIO . atomically . writeTChan from)
 
 ----------------------------------------
 -- HELPERS
 ----------------------------------------
 
--- NOW USING LAZY BYTESTRING
--- -- Receive an 'a' via tcp (throws exception on failed parse)
--- -- State type is leftover
--- recv' :: Socket -> Integer -> Parser a -> StateT B.ByteString IO a
--- recv' sock max parser = case gets (parse parser) of
---     Fail _ _ str -> liftIO . throw $ Noitpecxe str
---     Partial f -> f
---   where
---     getSome :: Integer -> (B.ByteString -> IResult B.ByteString r) -> (r, B.ByteString)
---     getSome left f = do
---         let less = min left 4096
+safeSend :: Socket -> B.ByteString -> IO ()
+safeSend sock bytes = do
+    sent <- send sock bytes
+    unless (sent == B.length bytes) . throw $ Noitpecxe "not all sent"
+
+recv' :: Socket -> Parser r -> StateT B.ByteString IO r
+recv' sock parser = aux $ parse parser
+  where
+    aux :: (B.ByteString -> Result r) -> StateT B.ByteString IO r
+    aux f = do
+        result <- gets f
+        case result of
+            Fail _ _ str -> throw $ Noitpecxe "HERE"
+            Partial f' -> getSome >> aux f'
+            Done t x -> put t >> return x
+    getSome = liftIO (recv sock 4096) >>=  put
 
 ourShake :: Env -> Handshake
 ourShake env = Handshake "BitTorrent protocol" (myCtxt $ config env) (ourId env) (infoHash $ metaInfo env)
