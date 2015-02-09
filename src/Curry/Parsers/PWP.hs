@@ -5,10 +5,8 @@ module Curry.Parsers.PWP
     , Message(..)
     , Context(..)
     , parseShake
-    , parseInt
     , parseMsg
     , mkShake
-    , mkInt
     , mkMsg
     , checkMsg
     , merge
@@ -75,10 +73,18 @@ parseShake = Handshake <$> (anyWord8 >>= ((`count` anyChar) . fromIntegral))
 ctxt :: B.ByteString -> Context
 ctxt _ = Context
 
+-- This is sorta lame
+parseMsg = do
+    len <- parseInt
+    rest <- take $ fromInteger len
+    case maybeResult (parse parseBody rest) of
+        Nothing -> fail "done"
+        Just msg -> return msg
+
 -- parse a 4-byte big-endian integer
 parseInt = (sum . zipWith (*) (iterate (* 256) 1) . map fromIntegral . reverse . B.unpack) <$> take 4
 
-parseMsg = endOfInput *> return Keepalive <|> do
+parseBody = endOfInput *> return Keepalive <|> do
     msgID <- anyWord8
     case msgID of
         0 -> return Choke
@@ -102,6 +108,11 @@ mkShake Handshake{..} = B.singleton 19 `B.append` C.pack protocol
                                        `B.append` someHash
   where context' = B.pack $ replicate 8 0
 
+-- Makes a lenght-prefixed message
+mkMsg :: Message -> B.ByteString
+mkMsg msg = (B.singleton . fromInteger . toInteger $ B.length body) `B.append` body
+  where body = mkBody msg
+
 -- Turn an integer into a big-endian 4-bit bytestring.
 -- Oversized ints are not handled.
 mkInt :: Integer -> B.ByteString
@@ -109,17 +120,17 @@ mkInt int = B.pack [ fromIntegral $ 255 .&. shiftR int part
                       | part <- [24, 16, 8, 0]
                       ]
 
-mkMsg :: Message -> B.ByteString
-mkMsg (Keepalive     ) = B.empty
-mkMsg (Choke         ) = B.singleton 0
-mkMsg (Unchoke       ) = B.singleton 1
-mkMsg (Interested    ) = B.singleton 2
-mkMsg (Bored         ) = B.singleton 3
-mkMsg (Have     x    ) = 4 `B.cons` mkInt x
-mkMsg (Bitfield x    ) = 5 `B.cons` bitField x
-mkMsg (Request  x y z) = 6 `B.cons` (B.concat . map mkInt) [x, y, z]
-mkMsg (Piece    x y z) = 7 `B.cons` B.concat [mkInt x, mkInt y, z]
-mkMsg (Cancel   x y z) = 8 `B.cons` (B.concat . map mkInt) [x, y, z]
+mkBody :: Message -> B.ByteString
+mkBody (Keepalive     ) = B.empty
+mkBody (Choke         ) = B.singleton 0
+mkBody (Unchoke       ) = B.singleton 1
+mkBody (Interested    ) = B.singleton 2
+mkBody (Bored         ) = B.singleton 3
+mkBody (Have     x    ) = 4 `B.cons` mkInt x
+mkBody (Bitfield x    ) = 5 `B.cons` bitField x
+mkBody (Request  x y z) = 6 `B.cons` (B.concat . map mkInt) [x, y, z]
+mkBody (Piece    x y z) = 7 `B.cons` B.concat [mkInt x, mkInt y, z]
+mkBody (Cancel   x y z) = 8 `B.cons` (B.concat . map mkInt) [x, y, z]
 
 ----------------------------------------
 -- UTILS (will grow with Context)

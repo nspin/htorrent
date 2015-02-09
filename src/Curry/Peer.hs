@@ -15,18 +15,16 @@ import           Control.Exception
 import           Control.Monad.Trans
 import           Control.Monad.Trans.State.Lazy
 import           Control.Monad
-import           Data.Attoparsec.ByteString.Lazy
+import           Data.Attoparsec.ByteString
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
 import           Data.Maybe
 import           Data.UnixTime
 import           Network.Info
 import qualified Network.Simple.TCP as T
-import           Network.Socket hiding (send)
-import           Network.Socket.ByteString (send)
-import           Network.Socket.ByteString.Lazy (getContents)
+import           Network.Socket hiding (send, recv)
+import           Network.Socket.ByteString (send, recv)
 import           Prelude hiding (getContents)
 import           System.Timeout
 
@@ -76,32 +74,29 @@ safeSend sock bytes = do
     sent <- send sock bytes
     when (sent /= B.length bytes) . throw $ Noitpecxe "not all sent"
 
+recv' :: Socket -> Parser r -> StateT B.ByteString IO r
+recv' sock parser = undefined
+
 -- The middleman between the peer and its corresponding socket
 play :: Env -> Peer -> Socket -> IO ()
 play env p@Peer{..} sock = do
 
         -- Handshake
         safeSend sock . mkShake $ ourShake env
+        (theirShake, rest) <- runStateT (recv' sock parseShake) B.empty
 
-        -- Lazily get their stream
-        input <- getContents sock
-
-        print $ L.take 10 input
-
-        case parse parseShake input of
-            Fail _ _ str -> throwIO $ Noitpecxe str
-            Done t r -> when (r == ourShake env) $ do
+        when (theirShake == ourShake env) $ do
 
                 -- Initial peer status
                 itime <- getUnixTime
-                let startStatus = Status M.empty True True False False itime (someCtxt r)
+                let startStatus = Status M.empty True True False False itime (someCtxt theirShake)
 
                 -- Initialize peer status
                 atomically $ putTMVar status startStatus
-                
+
                 forkIO $ react env p
 
-                catch (void . concurrently mouth $ ears t)
+                catch (void . concurrently mouth $ evalStateT ears rest)
                     . (const :: IO () -> SomeException -> IO ())
                     . void
                     . atomically
@@ -110,29 +105,12 @@ play env p@Peer{..} sock = do
 
     -- Listen to outbound channel and send.
     -- Will make more descriptive exceptions soon.
-    mouth = forever $ do
-        msg <- atomically $ readTChan to
-        let bytes = mkMsg msg
-            len = B.length bytes
-        sent <- send sock $ mkInt (toInteger len) `B.append` bytes
-        when (sent /= 4 + len) . throw $ Noitpecxe "couldn't send stuff"
+    mouth = forever $ (atomically $ readTChan to) >>= (safeSend sock . mkMsg)
 
     -- Listen on socket and react.
     -- Parent will catch pattern match fail in fromJust, so it's safe.
-    ears = evalStateT $ forever $ getMsg >>= (liftIO . atomically . writeTChan from)
-
-getMsg :: StateT L.ByteString IO Message
-getMsg = do
-    len <- StateT $ \st -> case parse parseInt st of
-        Fail _ _ str -> throwIO $ Noitpecxe str
-        Done t r -> return (r, t)
-    bytes <- StateT $ return . L.splitAt (fromInteger len)
-    case parse parseMsg bytes of
-        Fail _ _ str -> liftIO . throwIO $ Noitpecxe str
-        Done t r ->
-            if L.null t
-            then liftIO . throwIO $ Noitpecxe "had leftover"
-            else return r
+    ears :: StateT B.ByteString IO ()
+    ears = forever $ recv' sock parseMsg >>= (liftIO . atomically . writeTChan from)
 
 ----------------------------------------
 -- HELPERS
