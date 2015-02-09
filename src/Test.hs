@@ -33,12 +33,17 @@ import qualified Network.Wreq as W
 test name = do
 
     file <- B.readFile name
-    a <- Pieces <$> newTVarIO M.empty <*> newTChanIO <*> newTVarIO undefined <*> newTChanIO <*> newTVarIO undefined
+
+    let Right meta = getMeta file
+
+    a <- atomically . fmap (M.fromList . zip [0..])
+                    . sequence
+                    . replicate (length . pieces . info $ torrent meta)
+                    $ newTVar None
     b <- newTVarIO []
     c <- newChan
 
-    let Right meta = getMeta file
-        env = Env
+    let env = Env
                 (Config 0 0 30 55 Context)
                 (Addr undefined $ show 6881)
                 (C.pack "anothertestidishere1")

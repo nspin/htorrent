@@ -1,11 +1,11 @@
 module Curry.Types
     ( Env(..)
     , Config(..)
-    , Pieces(..)
     , Progress(..)
     , Peer(..)
     , Hist(..)
     , Status(..)
+    , Pieces(..)
     , opHas
     , setChoked
     , setInteresting
@@ -37,7 +37,7 @@ data Env = Env
     , ourId     :: B.ByteString
     , ourKey    :: B.ByteString
     , metaInfo  :: MetaInfo
-    , ourPieces :: Pieces
+    , ourPieces :: Pieces (TVar Progress)
     , peers     :: TVar [Peer]
     , output    :: Chan String
     } deriving Show
@@ -50,15 +50,10 @@ data Config = Config
     , myCtxt   :: Context
     } deriving Show
 
-data Pieces = Pieces
-    { progress  :: TVar (M.Map Integer Progress)
-    , take      :: TChan      (Chunk Integer, B.ByteString -> IO (), IO ())
-    , takeBin   :: TVar (MVar (Chunk Integer, B.ByteString -> IO (), IO ()))
-    , give      :: TChan      (Chunk B.ByteString, Integer -> IO (), IO ())
-    , giveBin   :: TVar (MVar (Chunk B.ByteString, Integer -> IO (), IO ()))
-    } deriving Show
-
-data Progress = None | Some | All deriving Show
+data Progress = None
+              | Some (TChan (Chunk B.ByteString, Integer      -> IO (), IO ()))
+              | All  (TChan (Chunk Integer     , B.ByteString -> IO (), IO ()))
+              deriving Show
 
 ---------------------------------
 
@@ -80,7 +75,7 @@ data Hist = Hist
     } deriving Show
 
 data Status = Status
-    { has         :: (M.Map Integer Bool)
+    { has         :: Pieces Bool
     , choked      :: Bool
     , choking     :: Bool
     , interesting :: Bool
@@ -89,14 +84,16 @@ data Status = Status
     , context     :: Context
     } deriving Show
 
-opHas f s = s { has = f (has s) }
-setChoked x s = s { choked = x }
-setInteresting x s = s { interesting = x }
+opHas          f s = s { has         = f (has s) }
+setChoked      x s = s { choked      = x         }
+setInteresting x s = s { interesting = x         }
 
 ----------------------------------------
 -- UTILS
 ----------------------------------------
 
+type Pieces a = M.Map Integer a
+
 done :: Progress -> Bool
-done All = True
-done _ = False
+done (All _)  = True
+done _        = False

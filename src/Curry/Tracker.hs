@@ -65,7 +65,7 @@ mkURL env event trackid = do
     peers' <- readTVar peers
     ups <- mapM (fmap up . readTVar . hist) peers'
     downs <- mapM (fmap down . readTVar . hist) peers'
-    have <- fmap (M.size . M.filter id . M.map done) . readTVar $ progress ourPieces
+    have <- fmap (length . filter done) . mapM readTVar $ M.elems ourPieces
 
     return (announce torrent ++ "?" ++ intercalate "&"
       ( catMaybes [ fmap (("trackerid=" ++) . urifyBS) trackid
