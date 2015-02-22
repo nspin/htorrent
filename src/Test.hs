@@ -23,14 +23,14 @@ portX = 7000
 
 test :: String -> IO ()
 test = B.readFile >=> \file ->
-    let Just (MetaInfo t h) = getMeta file
+    let Just meta = getMeta file
         Torrent { announce = a
-                , infoStuff = InfoStuff { piece_length = len
-                                        , pieces = n
-                                        }
-                } = t
+                , infoStuff = Info { piece_length = len
+                                   , pieces = n
+                                   }
+                } = torren meta
         req = TRequest { tracker = a
-                       , info_hash = h
+                       , info_hash = info_hash meta
                        , peer_id = idX
                        , pport = portX
                        , status = TStatus { uploaded = 0

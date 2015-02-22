@@ -19,6 +19,9 @@ import Network.Socket
 
 -- Not yet implemented. Will contain config of some sort.
 data GP = GP
+    { ip  :: String
+    , key :: B.ByteString
+    }
 
 data GT = GT
     { myId   :: B.ByteString
@@ -84,22 +87,27 @@ data Message = Keepalive
 ----------------------------------------
 
 -- Tracker request
+-- Trailing 0's are a temporary hack (ghci can't handle different
+-- types with the same record labels (which simon peyton jones has
+-- acknowledged is one of haskell's most obvious mistakes), and while
+-- all of these types are in the same module, this is a problem. So,
+-- until then, trailing 0's are the fix.
 data Traq = Traq
     { tracker    :: String
-    , info_hash' :: B.ByteString
+    , info_hash0 :: B.ByteString
     , peer_id    :: B.ByteString
     , pport      :: Word
-    , status'    :: OurStatus
+    , status0    :: OurStatus
     , event      :: Maybe OurEvent
-    , ip         :: String
+    , ip         :: Maybe String
     , key        :: B.ByteString
     , trackerid  :: String
     } deriving Show
 
 data OurStatus = OurStatus
-    { uploaded'   :: Integer
-    , downloaded' :: Integer
-    , left'       :: Integer
+    { uploaded0   :: Integer
+    , downloaded0 :: Integer
+    , left0       :: Integer
     } deriving Show
 
 data OurEvent = Started | Stopped | Completed deriving Show
