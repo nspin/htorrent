@@ -3,35 +3,44 @@ module Curis.Types where
 import Data.ByteString
 import Data.Map
 
--- Our monad stack
-type T = ReaderT Download (StateT (MVar Tate) IO)
+----------------------------------------
+-- VARIOUS SORTS OF STATE 
+----------------------------------------
 
--- progress is a map from piece number to pairs of start-end bites of needed blocks
-data Tate = Tate { progress :: Map Integer [(Integer, Integer)]
-                 , --peers    :: [MVar Peer]
-                 } deriving Show
+-- Each is named according to/parameterized over
+-- the following qualifiers:
 
-data Progress = Progress { pieces  :: Map Integer Bool
-                         , current :: Integer
-                         , cprog   :: [(Int, Int)]
-                         , tstat   :: TStatus
-                         } deriving Show
+--      G = global (common to all instances of the client)
+--      D = download (specific to a certain torrent)
+--      P = persistant (using acid state)
+--      T = temporary (dies with instance of client)
 
--- infohash, pid, then pieces
-data Download = Download { tracker  :: String
-                         , myd      :: B.ByteString
-                         , metahash :: B.ByteString
-                         , myport   :: Integer
-                         , phashes  :: [B.ByteString]
-                         } deriving Show
+-- Not implemented atm. Will contain config of some sort.
+data GP = GP
 
+data GT = GT { myId :: B.ByteString
+             , myPort :: Int
+             }
+
+data DT = DT { uploaded :: Int
+             , downoaded :: Int
+             , left :: Int
+             , peers :: [MVar Peer]
+             } deriving Show
+
+data DP = DP { meta       :: MetaInfo
+             , complete   :: M.Map Int        B.ByteString
+             , incomplete :: M.Map (Int, Int) B.ByteString
+             }
+
+-- Information about a specific peer. Always exists in an MVar
 data Peer = Peer { id       :: PeerID -- necessary? (yes for tracker thread decisions)
                  , sock     :: Socket -- necessary?
                  , relation :: Relation
                  , status   :: (Map Integer Bool)
                  , up       :: Word
                  , down     :: Word
-                 , cchan    :: Command
+                 , chan    :: Command
                  } deriving Show
 
 -- addr, port
@@ -43,7 +52,9 @@ data Relation = Relation { choked      :: Bool
                          , interesting :: Bool
                          } deriving Show
 
--- Peer Wire Protocol types
+----------------------------------------
+-- PEER WIRE PROTOCOL TYPES
+----------------------------------------
 
 data Handshake = Handshake String B.ByteString B.ByteString
 
@@ -67,26 +78,32 @@ data BValue = BString B.ByteString
             | BDict [(B.ByteString, BValue)]
             deriving Show
 
--- Communication with tracker
+----------------------------------------
+-- COMMUNICATION WITH TRACKER
+----------------------------------------
 
-data TRequest = TRequest { tracker    :: String
-                         , info_hash  :: B.ByteString
-                         , peer_id    :: B.ByteString
-                         , pport      :: Word
-                         , status     :: TStatus
-                         , event      :: Maybe TEvent
-                         , ip         :: String
-                         , key        :: B.ByteString
-                         , trackerid  :: String
-                         } deriving Show
-  
-  
+-- Tracker request
+data Traq = Traq { tracker    :: String
+                 , info_hash  :: B.ByteString
+                 , peer_id    :: B.ByteString
+                 , pport      :: Word
+                 , status     :: TStatus
+                 , event      :: Maybe TEvent
+                 , ip         :: String
+                 , key        :: B.ByteString
+                 , trackerid  :: String
+                 } deriving Show
+
 data OurStatus = OurStatus { uploaded   :: Integer
                            , downloaded :: Integer
                            , left       :: Integer
                            } deriving Show
 
 data OurEvent = Started | Stopped | Completed deriving Show
+
+----------------------------------------
+-- METAINFO
+----------------------------------------
 
 -- All of the information in(/about) a torrent file that curtis is,
 -- at this point, capable of caring about.
