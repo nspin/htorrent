@@ -1,59 +1,68 @@
-module Curis.Types where
+module Curtis.Types where
 
-import Data.ByteString
-import Data.Map
+import qualified Data.ByteString as B
+import qualified Data.Map as M
+import Control.Concurrent.MVar
+import Data.Word
+import Network.Socket
 
 ----------------------------------------
--- VARIOUS SORTS OF STATE 
+-- VARIOUS SORTS OF STATE
 ----------------------------------------
 
 -- Each is named according to/parameterized over
 -- the following qualifiers:
-
 --      G = global (common to all instances of the client)
 --      D = download (specific to a certain torrent)
 --      P = persistant (using acid state)
 --      T = temporary (dies with instance of client)
 
--- Not implemented atm. Will contain config of some sort.
+-- Not yet implemented. Will contain config of some sort.
 data GP = GP
 
-data GT = GT { myId :: B.ByteString
-             , myPort :: Int
-             }
+data GT = GT
+    { myId   :: B.ByteString
+    , myPort :: Int
+    } deriving Show
 
-data DT = DT { uploaded :: Int
-             , downoaded :: Int
-             , left :: Int
-             , peers :: [MVar Peer]
-             } deriving Show
+data DT = DT
+    { uploaded  :: Int
+    , downoaded :: Int
+    , left      :: Int
+    , peers     :: [MVar Peer]
+    } deriving Show
 
-data DP = DP { meta       :: MetaInfo
-             , complete   :: M.Map Int        B.ByteString
-             , incomplete :: M.Map (Int, Int) B.ByteString
-             }
+data DP = DP
+    { metainfo   :: MetaInfo
+    , complete   :: M.Map Int        B.ByteString
+    , incomplete :: M.Map (Int, Int) B.ByteString
+    } deriving Show
 
 -- Information about a specific peer. Always exists in an MVar
-data Peer = Peer { id       :: PeerID -- necessary? (yes for tracker thread decisions)
-                 , sock     :: Socket -- necessary?
-                 , relation :: Relation
-                 , status   :: (Map Integer Bool)
-                 , up       :: Word
-                 , down     :: Word
-                 , chan    :: Command
-                 } deriving Show
+data Peer = Peer
+    { idAddr   :: String
+    , idPort   :: String
+--  , id       :: PeerID -- necessary? (yes for tracker thread decisions)
+    , sock     :: Socket -- necessary?
+    , relation :: Relation
+    , status   :: (M.Map Integer Bool)
+    , up       :: Word
+    , down     :: Word
+    , chan     :: Command
+    } deriving Show
 
--- addr, port
-type PeerID = (String, String)
+data Relation = Relation
+    { choked      :: Bool
+    , choking     :: Bool
+    , inerested   :: Bool
+    , interesting :: Bool
+    } deriving Show
 
-data Relation = Relation { choked      :: Bool
-                         , choking     :: Bool
-                         , inerested   :: Bool
-                         , interesting :: Bool
-                         } deriving Show
+-- TODO
+data Command = Command deriving Show
 
 ----------------------------------------
--- PEER WIRE PROTOCOL TYPES
+-- PEER WIRE PROTOCOL
 ----------------------------------------
 
 data Handshake = Handshake String B.ByteString B.ByteString
@@ -70,34 +79,28 @@ data Message = Keepalive
              | Cancel Int Int Int
              deriving Show
 
-
--- A bencoded value
-data BValue = BString B.ByteString
-            | BInt Integer
-            | BList [BValue]
-            | BDict [(B.ByteString, BValue)]
-            deriving Show
-
 ----------------------------------------
 -- COMMUNICATION WITH TRACKER
 ----------------------------------------
 
 -- Tracker request
-data Traq = Traq { tracker    :: String
-                 , info_hash  :: B.ByteString
-                 , peer_id    :: B.ByteString
-                 , pport      :: Word
-                 , status     :: TStatus
-                 , event      :: Maybe TEvent
-                 , ip         :: String
-                 , key        :: B.ByteString
-                 , trackerid  :: String
-                 } deriving Show
+data Traq = Traq
+    { tracker    :: String
+    , info_hash' :: B.ByteString
+    , peer_id    :: B.ByteString
+    , pport      :: Word
+    , status'    :: OurStatus
+    , event      :: Maybe OurEvent
+    , ip         :: String
+    , key        :: B.ByteString
+    , trackerid  :: String
+    } deriving Show
 
-data OurStatus = OurStatus { uploaded   :: Integer
-                           , downloaded :: Integer
-                           , left       :: Integer
-                           } deriving Show
+data OurStatus = OurStatus
+    { uploaded'   :: Integer
+    , downloaded' :: Integer
+    , left'       :: Integer
+    } deriving Show
 
 data OurEvent = Started | Stopped | Completed deriving Show
 
@@ -108,7 +111,10 @@ data OurEvent = Started | Stopped | Completed deriving Show
 -- All of the information in(/about) a torrent file that curtis is,
 -- at this point, capable of caring about.
 
-data MetaInfo = MetaInfo Torrent B.ByteString deriving Show
+data MetaInfo = MetaInfo
+    { torrent   :: Torrent
+    , info_hash :: B.ByteString
+    } deriving Show
 
 data Torrent = Torrent
     { announce      :: String
@@ -117,14 +123,14 @@ data Torrent = Torrent
     , created_by    :: Maybe String
     , creation_date :: Maybe Integer
     , encoding      :: Maybe String
-    , infoStuff     :: InfoStuff
+    , info          :: Info
     } deriving Show
 
 data Info = Info
     { piece_length :: Integer
     , pieces       :: [B.ByteString]
     , private      :: Bool
-    , files        :: Either (FileInfo String) (String, FileInfo [String])
+    , fileStuff    :: Either (FileInfo String) (String, [FileInfo [String]])
     } deriving Show
 
 data FileInfo a = FileInfo
@@ -132,3 +138,28 @@ data FileInfo a = FileInfo
     , length :: Integer
     , md5sum :: Maybe B.ByteString
     } deriving Show
+
+----------------------------------------
+-- CETERA
+----------------------------------------
+
+-- A bencoded value.
+-- Note that bdict keys are strings, not bytestrings (or, if you prefer,
+-- that bstrings are bytestrings). These are different because bstrings
+-- may be binary data, whereas (in all implementations I know of) keys
+
+-- are always text. Storing keys as strings allows string literals to
+-- be used in lookup (rather than packing for each lookup, which is not
+-- very efficient).
+data BValue = BString B.ByteString
+            | BInt Integer
+            | BList [BValue]
+            | BDict [(String, BValue)]
+            deriving Show
+
+----------------------------------------
+-- IGNORE
+----------------------------------------
+
+instance Show (MVar a) where
+    show _ = "(an mvar exists here)"

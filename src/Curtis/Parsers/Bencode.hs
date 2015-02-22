@@ -1,13 +1,13 @@
 module Curtis.Parsers.Bencode
-    ( BValue(..)
-    , getBen
+    ( getBVal
     , getString
     , getInt
     , getList
     , getDict
-    , bookup
     , hashify
     ) where
+
+import           Curtis.Types
 
 import           Control.Applicative
 import           Control.Monad
@@ -17,10 +17,50 @@ import           Data.Attoparsec.ByteString.Char8 as P
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 
-getBen :: B.ByteString -> Maybe BValue
-getBen = maybeResult . parse parseBen
+----------------------------------------
+-- PARSERS
+----------------------------------------
 
--- Four getters for extracting info from bvalues
+-- Parses a bencoded value
+parseBVal :: Parser BValue
+parseBVal =  BString <$> parseString
+         <|> BInt    <$> parseMid 'i' decimal -- make signed?
+         <|> BList   <$> parseMid 'l' (many1 parseBVal)
+         <|> BDict   <$> parseDict parseBVal
+
+-- Parses a bencoded string
+parseString :: Parser B.ByteString
+parseString = decimal <* char ':' >>= P.take
+
+-- Parse a list of (key,value)'s according to a parser for values
+-- (generalized because used both in parseBVal and rawDict)
+parseDict :: Parser a -> Parser [(String, a)]
+parseDict = parseMid 'd' . many1 . liftA2 (,) (C.unpack <$> parseString)
+
+-- Parses the between start and 'e'
+parseMid :: Char -> Parser a -> Parser a
+parseMid start middle = char start *> middle <* char 'e'
+
+-- Extract raw bytestring of info key (if it exists), and calculate infohash
+-- Note that >=>'s presidence is lower than that of >>=
+hashify :: B.ByteString -> Maybe B.ByteString
+hashify = fmap hash . (maybeResult . parse rawDict >=> lookup "info")
+
+-- Parses a bencoded dictionary, leaving values as raw bytestrings
+rawDict :: Parser [(String, B.ByteString)]
+rawDict = parseDict $ fst <$> match parseBVal
+
+----------------------------------------
+-- PARSING-GETTER-THINGS (a -> Maybe b)
+----------------------------------------
+
+-- Type signature says all.
+
+getBVal :: B.ByteString -> Maybe BValue
+getBVal = maybeResult . parse parseBVal
+
+-- Four getters for extracting info from bvals, one for each constructor
+-- (the least interesting part of this module)
 
 getString :: BValue -> Maybe B.ByteString
 getString (BString v) = Just v
@@ -34,30 +74,6 @@ getList :: BValue -> Maybe [BValue]
 getList (BList v) = Just v
 getList _ = Nothing
 
-getDict :: BValue -> Maybe [(B.ByteString, BValue)]
+getDict :: BValue -> Maybe [(String, BValue)]
 getDict (BDict v) = Just v
 getDict _ = Nothing
-
--- TODO improve (with attoparsec)
--- Also, this is purely for convenience
-bookup :: String -> [(C.ByteString, a)] -> Maybe a
-bookup skey = lookup (C.pack skey)
-
--- De-bencodes a bytestring
-parseBen =  BString <$> parseString
-        <|> BInt    <$> parseMid 'i' decimal -- make signed
-        <|> BList   <$> parseMid 'l' (many1 parseBen)
-        <|> BDict   <$> parseMid 'd' (many1 $ liftA2 (,) parseString parseBen)
-
-parseMid start middle = char start *> middle <* char 'e'
-
-parseString = decimal <* char ':' >>= P.take
-
--- Extract raw bytestring of info key (if it exists), for use in calculating infohash
-hashify :: B.ByteString -> Maybe B.ByteString
-hashify = liftM hash . (
-          marse ( parseMid 'd'
-                $ many1
-                $ liftA2 (,) parseString (fst <$> match parseBen)
-                )
-          >=> bookup "info")

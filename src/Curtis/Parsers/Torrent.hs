@@ -1,15 +1,11 @@
 module Curtis.Tracker.Torrent
-    ( MetaInfo(..)
-    , Torrent(..)
-    , InfoStuff(..)
-    , OneFile(..)
-    , ManyFiles(..)
-    , ManyFile(..)
-    , getMeta
+    ( getMeta
     ) where
 
-import           Curtis.Bencode
-import           Curtis.Common
+import           Curtis.Types
+import           Curtis.Parsers.Bencode
+
+import           Prelude hiding (length)
 
 import           Control.Monad
 import           Control.Applicative
@@ -22,57 +18,62 @@ import qualified Data.ByteString.Char8 as C
 import           Data.Attoparsec.ByteString.Char8 as P
 
 
-getMeta :: B.ByteString -> Either String MetaInfo
-getMeta bytes = liftM2 MetaInfo (marse parseBen bytes >>= getTorrent)
-                                (hashify bytes)
+getMeta :: B.ByteString -> Maybe MetaInfo
+getMeta bytes = do
+    torrent' <- getBVal bytes >>= getTorrent
+    info_hash' <- hashify bytes 
+    return MetaInfo { torrent = torrent'
+                    , info_hash = info_hash'
+                    }
 
 getTorrent :: BValue -> Maybe Torrent
 getTorrent = getDict >=> \dict -> do
-    announce' <- bookup "announce" dict >>= getString
-    infoStuff' <- bookup "info" dict >>= getInfo
+    announce' <- lookup "announce" dict >>= getString
+    info' <- lookup "info" dict >>= getInfo
     return Torrent { announce = C.unpack announce'
                    , announce_list = fmap (map C.unpack)
-                                   $ bookup "announce-list" dict
+                                   $ lookup "announce-list" dict
                                  >>= getList
                                  >>= mapM getString
                    , comment = fmap C.unpack
-                             $ bookup "comment" dict >>= getString
+                             $ lookup "comment" dict >>= getString
                    , created_by = fmap C.unpack
-                                $ bookup "created by" dict >>= getString
-                   , creation_date = bookup "creation date" dict >>= getString
-                                 >>= marse decimal
-                   , infoStuff = infoStuff'
+                                $ lookup "created by" dict >>= getString
+                   , creation_date = lookup "creation date" dict >>= getString
+                                 >>= (maybeResult . parse decimal)
+                   , encoding = fmap C.unpack $ lookup "encoding" dict >>= getString
+                   , info = info'
                    }
 
-getInfo :: BValue -> Maybe InfoStuff
+getInfo :: BValue -> Maybe Info
 getInfo = getDict >=> \dict -> do
-    piece_length' <- bookup "piece length" dict >>= getInt
-    pieces' <- bookup "pieces" dict
-          >>= getString
-          >>= (maybeResult . (`feed` B.empty) . parse (many1 $ P.take 20))
+    piece_length' <- lookup "piece length" dict >>= getInt
+    pieces' <- lookup "pieces" dict
+           >>= getString
+           >>= (maybeResult . (`feed` B.empty) . parse (many1 $ P.take 20))
     let one = fmap Left $ do
-                name' <- bookup "name" dict >>= getString
-                length' <- bookup "length" dict >>= getInt
-                return OneFile { nameO = C.unpack name'
-                               , lengthO = length'
-                               , md5sumO = bookup "md5sum" dict >>= getString
-                               }
+                name' <- lookup "name" dict >>= getString
+                length' <- lookup "length" dict >>= getInt
+                return FileInfo { name = C.unpack name'
+                                , length = length'
+                                , md5sum = lookup "md5sum" dict >>= getString
+                                }
         many = fmap Right $ do
-                 name' <- bookup "name" dict >>= getString
-                 files' <- bookup "files" dict >>= getList >>= mapM (getDict >=> \file -> do
-                    path' <- bookup "path" file >>= getList >>= mapM getString
-                    length' <- bookup "length" file >>= getInt
-                    return ManyFile { pathM = map C.unpack path'
-                                    , lengthM = length'
-                                    , md5sumM = bookup "md5sum" file >>= getString
+                 name' <- lookup "name" dict >>= getString
+                 files' <- lookup "files" dict >>= getList >>= mapM (getDict >=> \file -> do
+                    path' <- lookup "path" file >>= getList >>= mapM getString
+                    length' <- lookup "length" file >>= getInt
+                    return FileInfo { name = map C.unpack path'
+                                    , length = length'
+                                    , md5sum = lookup "md5sum" file >>= getString
                                     }
                     )
-                 return ManyFiles { nameM = C.unpack name', filesM = files' }
-    fileStuff' <- mplus one many
-    return InfoStuff { piece_length = piece_length'
-                     , pieces       = pieces'
-                     , private      = fromMaybe False
-                                      $ fmap (== 1)
-                                      $ bookup "private" dict >>= getInt
-                     , fileStuff    = fileStuff'
-                     }
+                 return (C.unpack name', files')
+    fileStuff <- mplus one many
+    return Info { piece_length = piece_length'
+                , pieces       = pieces'
+                , private      = fromMaybe False
+                                 $ fmap (== 1)
+                                 $ lookup "private" dict >>= getInt
+                , fileStuff    = fileStuff
+                }
