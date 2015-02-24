@@ -66,7 +66,7 @@ getString :: BValue -> Maybe B.ByteString
 getString (BString v) = Just v
 getString _ = Nothing
 
-getInt :: BValue -> Maybe Integer
+getInt :: BValue -> Maybe Int
 getInt (BInt v) = Just v
 getInt _ = Nothing
 

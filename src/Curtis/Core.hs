@@ -1,32 +1,44 @@
 module Curtis.Core where
 
+import Curtis.Types
+import Curtis.Tracker
+
 import Data.Map
 import Control.Concurrent
 import Control.Concurrent.MVar
 import Data.Lens
 
-meet :: PeerID -> P ()
-meet di@(addr, prt) = do
-    (ihash, mid) <- asks infoT
-    peers <- readMVar mvar
-    unless ((==) id' . id `any` peers)
-     . connect addr prt
-     $ \(sock, _) -> do
-        forkIO $ send sock $ concat [handhead, ihash, mid]
-        forkIO $ do
-            resp <- recv sock 1337
-            case resp of
-                Nothing -> return ()
-                Just bytes -> do
-                    -- todo test things like infohash and protocol
-                    forkIO $ forever $ do
-                        msgs <- asks msgsM
-                        liftIO $ do
-                            com <- readMVar msgs
-                            doCom com
-                    forever $ liftIO $ do
-                        req <- recv sock 133337
-                        parseAndDoReq
+startup :: GP -> IO ()
+startup = undefined
+
+begin :: MetaInfo -> Reader (GP, GT) -> IO (AcidState ST)
+begin = undefined
+
+download :: ReaderT (GP, GT, acid)
+begin = undefined
+
+-- meet :: PeerID -> P ()
+-- meet di@(addr, prt) = do
+--     (ihash, mid) <- asks infoT
+--     peers <- readMVar mvar
+--     unless ((==) id' . id `any` peers)
+--      . connect addr prt
+--      $ \(sock, _) -> do
+--         forkIO $ send sock $ concat [handhead, ihash, mid]
+--         forkIO $ do
+--             resp <- recv sock 1337
+--             case resp of
+--                 Nothing -> return ()
+--                 Just bytes -> do
+--                     -- todo test things like infohash and protocol
+--                     forkIO $ forever $ do
+--                         msgs <- asks msgsM
+--                         liftIO $ do
+--                             com <- readMVar msgs
+--                             doCom com
+--                     forever $ liftIO $ do
+--                         req <- recv sock 133337
+--                         parseAndDoReq
 
 -- prints info for diagnostics
 -- getTRespTEST :: TRequest -> IO (Maybe (Either String TResponse))

@@ -17,7 +17,7 @@ import qualified Data.ByteString.Char8 as C
 import           Data.Attoparsec.ByteString
 import           Control.Lens
 
-mkURL :: Traq -> String
+mkURL :: (GP, GT) ->  -> String
 mkURL Traq { tracker    = tracker'
            , info_hash0 = info_hash'
            , peer_id    = peer_id'
