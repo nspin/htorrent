@@ -1,4 +1,4 @@
-module Curtis.Tracker.Torrent
+module Current.Torrent
     ( getMeta
     ) where
 

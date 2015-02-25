@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Curtis.Tracker
+module Current.Tracker
     ( askTrack
     ) where
 

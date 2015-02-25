@@ -1,4 +1,4 @@
-module Curtis.Core where
+module Current.Core where
 
 import Curtis.Types
 import Curtis.Tracker

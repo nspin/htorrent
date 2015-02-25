@@ -1,10 +1,11 @@
-module PWP ( Handshake(..)
-           , getShake
-           , mkShake
-           , Message(..)
-           , getMsg
-           , mkMsg
-           ) where
+module Current.PWP
+    ( Handshake(..)
+    , getShake
+    , mkShake
+    , Message(..)
+    , getMsg
+    , mkMsg
+    ) where
 
 import           Control.Applicative
 import           Data.Attoparsec.ByteString

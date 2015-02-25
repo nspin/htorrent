@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell, TypeFamilies, DeriveDataTypeable #-}
 
-module Curtis.Types where
+module Current.Types where
 
 import           Control.Concurrent.Chan
 import           Control.Concurrent.MVar

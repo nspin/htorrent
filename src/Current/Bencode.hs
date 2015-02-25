@@ -1,4 +1,4 @@
-module Curtis.Parsers.Bencode
+module Current.Bencode
     ( getBVal
     , getString
     , getInt

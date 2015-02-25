@@ -1,4 +1,4 @@
-module Curtis.Tracker.THP
+module Current.THP
     ( mkURL
     ) where
 
