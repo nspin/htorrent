@@ -2,6 +2,8 @@
 
 module Curry.State where
 
+import           Curry.PWP
+
 import           Control.Concurrent.Chan
 import           Control.Concurrent.MVar
 import           Control.Monad.Reader
@@ -22,36 +24,56 @@ import           Prelude hiding (GT)
 
 -- State common to all torrents for this specific instance of the client
 data Global = Global
-    { port    :: Int
-    , numwant :: Maybe Int
-    , id      :: B.ByteString
-    , key     :: B.ByteString
+    { port     :: Int -- should this be specific to dl?
+    , id       :: B.ByteString
+    , key      :: B.ByteString
+    , minPeers :: Int
+    , maxPeers :: Int
     } deriving Show
 
 ------------------------------------------------
 
--- [To]rrent te[mp]orary.
-data Tomp = ST
+-- [To]rrent te[mp]orary state and environment
+
+data TompE = TompE
     { interval  :: Int
     , trackerId :: Maybe B.ByteString
-    , peers     :: MVar [MVar Peer]
-    , currPiece :: Map (Int, Int) B.ByteString
+    , peerCan   :: Chan Peer
+    } deriving Show
+
+data TompS = TompS
+    { peers     :: [Peer]
+    , chunkNum  :: Int
+    , chunkProg :: M.Map Chunk B.ByteString
     } deriving Show
 
 -- Information about a specific peer. Always exists in an MVar
 data Peer = Peer
-    { peerId   :: (String, String)
-    -- , sock     :: Socket -- necessary?
-    , partMap  :: (M.Map Int Bool)
-    , instr    :: Chan Message
-    , status   :: MVar Relation
-    , has      :: MVar (M.Map Int Bool)
-    , up       :: MVar Int
-    , down     :: MVar Int
-    , parts    :: Chan ((Int, (Int, Int)), B.ByteString)
+    { peerId   :: PeerID
+    , channel  :: MVar Message
+    , mstuff   :: PeerMut
     } deriving Show
 
-data Relation = Relation
+data PeerID = PeerID
+    { addr  :: String
+    , pport :: String
+    } deriving Show
+
+data PeerMut = PeerMut
+    { up     :: MVar Int
+    , down   :: MVar Int
+    , has    :: MVar (M.Map Int Bool)
+    , status :: MVar Status
+    , chunks :: Chan [(Chunk, B.ByteString)]
+    } deriving Show
+
+data Chunk = Chunk
+    { index :: Int
+    , start :: Int
+    , end   :: Int
+    } deriving (Show, Eq, Ord)
+
+data Status = Status
     { choked      :: Bool
     , choking     :: Bool
     , inerested   :: Bool
@@ -60,14 +82,14 @@ data Relation = Relation
 
 ------------------------------------------------
 
--- [T]orrent [acid] state.
-data Tacid = Tacid
-    { infoHash     :: B.ByteString
-    , trackers     :: Trackers
-    , funfo        :: Funfo
-    , fileStuff    :: Either (FileInfo String) (String, [FileInfo [String]])
-    , pieceMap     :: Map Int (Either B.ByteString B.ByteString)
-    , uploaded     :: Int
+-- [Tor]rent [p]ersistent state.
+data Torp = Torp
+    { infoHash  :: B.ByteString
+    , trackers  :: Trackers
+    , funfo     :: Funfo
+    , fileStuff :: Either (FileInfo String) (String, [FileInfo [String]])
+    , pieceMap  :: M.Map Int (Either B.ByteString B.ByteString)
+    , uploaded  :: Int
     } deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 data Trackers = Trackers
@@ -90,18 +112,11 @@ data FileInfo a = FileInfo
 
 -- Acid stuff
 
-askSP :: Query SP SP
-askSP = ask
+askTorp :: Query Torp Torp
+askTorp = ask
 
-putSP :: SP -> Update SP ()
-putSP = put
-
-addUps :: [Int] -> Update SP Int
-addUps ups = do
-    st <- get
-    let new = (uploaded st) + sum ups
-    put (st { uploaded = new })
-    return new
+putTorp :: Torp -> Update Torp ()
+putTorp = put
 
 ----------------------------------------
 -- CETERA
@@ -120,10 +135,9 @@ instance Show (Chan a) where
 -- TEMPLATE HASKELL
 ----------------------------------------
 
-$(deriveSafeCopy 0 'base ''SP)
-$(deriveSafeCopy 0 'base ''MetaInfo)
-$(deriveSafeCopy 0 'base ''Torrent)
-$(deriveSafeCopy 0 'base ''Info)
+$(deriveSafeCopy 0 'base ''Torp)
+$(deriveSafeCopy 0 'base ''Funfo)
+$(deriveSafeCopy 0 'base ''Trackers)
 $(deriveSafeCopy 0 'base ''FileInfo)
 
-$(makeAcidic ''SP ['askSP, 'putSP, 'addUps])
+$(makeAcidic ''Torp ['askTorp, 'putTorp])

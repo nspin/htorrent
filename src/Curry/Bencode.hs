@@ -1,5 +1,7 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+
 module Curry.Bencode
-    ( BValue{..}
+    ( BValue(..)
     , getBVal
     , getString
     , getInt
@@ -8,8 +10,6 @@ module Curry.Bencode
     , hashify
     ) where
 
-import           Curry.Types
-
 import           Control.Applicative
 import           Control.Monad
 import           Crypto.Hash.SHA1
@@ -17,6 +17,8 @@ import           Data.List
 import           Data.Attoparsec.ByteString.Char8 as P
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
+import           Data.Data
+import           Data.Typeable
 
 -- A bencoded value.
 -- Note that bdict keys are strings, not bytestrings (or, if you prefer,

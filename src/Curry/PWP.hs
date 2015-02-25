@@ -7,17 +7,25 @@ module Curry.PWP
     ) where
 
 import           Control.Applicative
+import           Data.Bits
 import           Data.Attoparsec.ByteString
-import           Data.Attoparsec.ByteString.Char8 as P
+import qualified Data.Attoparsec.ByteString.Char8 as P
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-import           Data.List
+import           Data.List hiding (take)
 import           Data.Word
+import           Prelude hiding (take)
+
+data Handshake = Handshake
+    { protocolHS :: String
+    , infoHashHS :: B.ByteString
+    , peerIDHS   :: B.ByteString
+    }
 
 data Message = Keepalive
              | Choke
              | Unchoke
-             | Intersted
+             | Interested
              | Bored
              | Have Int
              | Bitfield B.ByteString
@@ -26,29 +34,25 @@ data Message = Keepalive
              | Cancel Int Int Int
              deriving Show
 
-
-getHand :: B.ByteString -> Maybe Handshake
-getHand = maybeResult . parse parseShake
+getShake :: B.ByteString -> Maybe Handshake
+getShake = maybeResult . parse parseShake
 
 getMsg :: B.ByteString -> Maybe Message
 getMsg = maybeResult . parse parseMsg
 
-parseHand = liftA3 Handshake (anyWord8 >>= P.take) (take 20) (take 20)
+parseShake = liftA3 Handshake (C.unpack <$> (fmap fromIntegral anyWord8 >>= take)) (take 20) (take 20)
 
 mkShake :: B.ByteString -> B.ByteString -> B.ByteString
-mkShake myid infhash = concat [ B.pack 19
-                              , pstr
-                              , B.replicate 8 0
-                              , infhash
-                              , myid
-                              ]
-
-pstr :: B.ByteString
-pstr = C.pack "BitTorrent protocol"
+mkShake myid infhash = B.concat [ B.singleton 19
+                                , C.pack "BitTorren protocol"
+                                , B.replicate 8 0
+                                , infhash
+                                , myid
+                                ]
 
 -- TODO: check with len
 parseMsg = do
-    len <- pwpInt -- ^^^
+    len <- bigEnd -- ^^^
     case len of
         0 -> return Keepalive
         _ -> do
@@ -58,30 +62,31 @@ parseMsg = do
                 1 -> return Unchoke
                 2 -> return Interested
                 3 -> return Bored
-                4 -> Have <$> pwpInt
+                4 -> Have <$> bigEnd
                 5 -> Bitfield <$> takeByteString
-                6 -> liftA3 Request pwpInt pwpInt pwpInt
-                7 -> liftA3 Piece pwpInt pwpInt takeByteString
-                8 -> liftA3 Cancel pwpInt pwpInt pwpInt
+                6 -> liftA3 Request bigEnd bigEnd bigEnd
+                7 -> liftA3 Piece bigEnd bigEnd takeByteString
+                8 -> liftA3 Cancel bigEnd bigEnd bigEnd
 
 -- parse a 4-bit big-endian integer
-pwpInt = sum . zipWith (*) (iterate (* 256) 1) . map fromIntegral . reverse <$> take 4
+bigEnd = (sum . zipWith (*) (iterate (* 256) 1) . map fromIntegral . reverse . B.unpack) <$> take 4
 
 unInt :: Int -> B.ByteString
-unInt int = B.pack [ fromIntegral $ 255 .&. shiftR part int
+unInt int = B.pack [ fromIntegral $ 255 .&. shiftR int part 
                    | part <- [24, 16, 8, 0]
                    ]
 
-mkShake :: Message -> B.ByteString
-mkMsg msg = unInt (length body) `B.append` body
-  where body = case msg of
-    Keepalive      -> B.empty
-    Choke          -> B.pack 0
-    Unchoke        -> B.pack 1
-    Intersted      -> B.pack 2
-    Bored          -> B.pack 3
-    Have     x     -> B.pack 4 `B.append` unInt x
-    Bitfield x     -> B.pack 5 `B.append` x
-    Request  x y z -> B.pack 6 `B.append` (B.concat . map unInt) [x, y, z]
-    Piece    x y z -> B.pack 7 `B.append` B.concat [unInt x, unInt y, z]
-    Cancel   x y z -> B.pack 8 `B.append` (B.concat . map unInt) [x, y, z]
+mkMsg :: Message -> B.ByteString
+mkMsg msg = unInt (B.length body) `B.append` body
+  where
+    body = case msg of
+        Keepalive      -> B.empty
+        Choke          -> B.singleton 0
+        Unchoke        -> B.singleton 1
+        Interested     -> B.singleton 2
+        Bored          -> B.singleton 3
+        Have     x     -> 4 `B.cons` unInt x
+        Bitfield x     -> 5 `B.cons` x
+        Request  x y z -> 6 `B.cons` (B.concat . map unInt) [x, y, z]
+        Piece    x y z -> 7 `B.cons` B.concat [unInt x, unInt y, z]
+        Cancel   x y z -> 8 `B.cons` (B.concat . map unInt) [x, y, z]
