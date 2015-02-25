@@ -1,8 +1,7 @@
-module Current.PWP
-    ( Handshake(..)
+module Curry.PWP
+    ( Message(..)
     , getShake
     , mkShake
-    , Message(..)
     , getMsg
     , mkMsg
     ) where

@@ -1,11 +1,11 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Current.Tracker
+module Curry.Tracker
     ( askTrack
     ) where
 
-import           Curtis.Types
-import           Curtis.Parsers.Bencode
+import           Curry.Types
+import           Curry.Parsers.Bencode
 
 import           Control.Concurrent
 import           Control.Concurrent.MVar
@@ -34,15 +34,13 @@ import           Prelude hiding (GT)
 -- spawing new processes for each new peer reported and adding
 -- information about the processes to ST for the brain module.
 
-askTrack :: ReaderT (GP, GT, AcidState SP, ST) IO ()
-askTrack = forever $ do
+askTrack :: Global -> Tomp -> AcidState Tacid -> IO ()
+askTrack Global{..} Tomp{..} acid = forever $ do
 
-    -- Querying environment
-    (gp@GP{..}, gt@GT{..}, acid, st@ST{..}) <- ask
     sp@SP{..} <- query' acid AskSP
 
     -- Update uploaded from channel
-    up <- liftIO $ getChanContents upChan >>= (update acid . AddUps)
+    up <- getChanContents upChan >>= (update acid . AddUps)
 
     let url = announce (torrent $ metainfo) ++ "?" ++ intercalate "&"
               ( catMaybes [ fmap (("numwant="   ++) . show   ) numwant

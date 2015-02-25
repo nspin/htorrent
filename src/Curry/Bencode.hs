@@ -1,4 +1,4 @@
-module Current.Bencode
+module Curry.Bencode
     ( BValue{..}
     , getBVal
     , getString
@@ -8,7 +8,7 @@ module Current.Bencode
     , hashify
     ) where
 
-import           Curtis.Types
+import           Curry.Types
 
 import           Control.Applicative
 import           Control.Monad

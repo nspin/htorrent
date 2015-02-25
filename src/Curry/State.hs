@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell, TypeFamilies, DeriveDataTypeable #-}
 
-module Current.Types where
+module Curry.State where
 
 import           Control.Concurrent.Chan
 import           Control.Concurrent.MVar
@@ -22,51 +22,21 @@ import           Prelude hiding (GT)
 
 -- State common to all torrents for this specific instance of the client
 data Global = Global
-    { portM   :: Int
+    { port    :: Int
     , numwant :: Maybe Int
     , id      :: B.ByteString
     , key     :: B.ByteString
     } deriving Show
 
+------------------------------------------------
+
 -- [To]rrent te[mp]orary.
 data Tomp = ST
     { interval  :: Int
     , trackerId :: Maybe B.ByteString
-    , complete   :: M.Map Int        B.ByteString
-    , incomplete :: Maybe (M.Map (Int, Int) B.ByteString)
     , peers     :: MVar [MVar Peer]
     , currPiece :: Map (Int, Int) B.ByteString
     } deriving Show
-
--- [T]orrent [acid] state.
-data Tacid = Tacid
-    { infoHash     :: B.ByteString
-    , trackers     :: Trackers
-    , funfo        :: Funfo
-    , fileStuff    :: Either (FileInfo String) (String, [FileInfo [String]])
-    , pieceMap     :: Map Int (Either B.ByteString B.ByteString)
-    , uploaded     :: Int
-    } deriving (Eq, Ord, Read, Show, Data, Typeable)
-
-------------------------------------------------
-
-data Trackers = Trackers
-    { announce     :: String
-    , announceList :: [String]
-    , private      :: Bool
-    } deriving (Eq, Ord, Read, Show, Data, Typeable)
-
-data Funfo = Funfo
-    { comment       :: Maybe String
-    , createdBy    :: Maybe String
-    , creationDate :: Maybe Int
-    } deriving (Eq, Ord, Read, Show, Data, Typeable)
-
-data FileInfo a = FileInfo
-    { name   :: a
-    , len    :: Int
-    , md5sum :: Maybe B.ByteString
-    } deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 -- Information about a specific peer. Always exists in an MVar
 data Peer = Peer
@@ -87,6 +57,36 @@ data Relation = Relation
     , inerested   :: Bool
     , interesting :: Bool
     } deriving Show
+
+------------------------------------------------
+
+-- [T]orrent [acid] state.
+data Tacid = Tacid
+    { infoHash     :: B.ByteString
+    , trackers     :: Trackers
+    , funfo        :: Funfo
+    , fileStuff    :: Either (FileInfo String) (String, [FileInfo [String]])
+    , pieceMap     :: Map Int (Either B.ByteString B.ByteString)
+    , uploaded     :: Int
+    } deriving (Eq, Ord, Read, Show, Data, Typeable)
+
+data Trackers = Trackers
+    { announce     :: String
+    , announceList :: [String]
+    , private      :: Bool
+    } deriving (Eq, Ord, Read, Show, Data, Typeable)
+
+data Funfo = Funfo
+    { comment       :: Maybe String
+    , createdBy    :: Maybe String
+    , creationDate :: Maybe Int
+    } deriving (Eq, Ord, Read, Show, Data, Typeable)
+
+data FileInfo a = FileInfo
+    { name   :: a
+    , len    :: Int
+    , md5sum :: Maybe B.ByteString
+    } deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 -- Acid stuff
 

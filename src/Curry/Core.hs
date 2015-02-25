@@ -1,12 +1,12 @@
-module Current.Core where
+module Curry.Core where
 
-import Curtis.Types
-import Curtis.Tracker
+import           Curry.Types
+import           Curry.Tracker
 
-import Data.Map
-import Control.Concurrent
-import Control.Concurrent.MVar
-import Data.Lens
+import           Control.Concurrent
+import           Control.Concurrent.MVar
+import qualified Data.Map as M
+import           Data.Lens
 
 startup :: GP -> IO ()
 startup = undefined
