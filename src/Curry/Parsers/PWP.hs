@@ -1,8 +1,9 @@
-module Curry.PWP
-    ( Message(..)
+module Curry.Parsers.PWP
+    ( Handshake(..)
+    , Message(..)
     , getShake
-    , mkShake
     , getMsg
+    , mkShake
     , mkMsg
     ) where
 
@@ -15,6 +16,10 @@ import qualified Data.ByteString.Char8 as C
 import           Data.List hiding (take)
 import           Data.Word
 import           Prelude hiding (take)
+
+----------------------------------------
+-- TYPES
+----------------------------------------
 
 data Handshake = Handshake
     { protocolHS :: String
@@ -34,6 +39,10 @@ data Message = Keepalive
              | Cancel Int Int Int
              deriving Show
 
+----------------------------------------
+-- GETTERS
+----------------------------------------
+
 getShake :: B.ByteString -> Maybe Handshake
 getShake = maybeResult . parse parseShake
 
@@ -41,14 +50,6 @@ getMsg :: B.ByteString -> Maybe Message
 getMsg = maybeResult . parse parseMsg
 
 parseShake = liftA3 Handshake (C.unpack <$> (fmap fromIntegral anyWord8 >>= take)) (take 20) (take 20)
-
-mkShake :: B.ByteString -> B.ByteString -> B.ByteString
-mkShake myid infhash = B.concat [ B.singleton 19
-                                , C.pack "BitTorren protocol"
-                                , B.replicate 8 0
-                                , infhash
-                                , myid
-                                ]
 
 -- TODO: check with len
 parseMsg = do
@@ -68,13 +69,18 @@ parseMsg = do
                 7 -> liftA3 Piece bigEnd bigEnd takeByteString
                 8 -> liftA3 Cancel bigEnd bigEnd bigEnd
 
--- parse a 4-bit big-endian integer
-bigEnd = (sum . zipWith (*) (iterate (* 256) 1) . map fromIntegral . reverse . B.unpack) <$> take 4
+----------------------------------------
+-- MAKERS
+----------------------------------------
 
-unInt :: Int -> B.ByteString
-unInt int = B.pack [ fromIntegral $ 255 .&. shiftR int part 
-                   | part <- [24, 16, 8, 0]
-                   ]
+mkShake :: B.ByteString -> B.ByteString -> B.ByteString
+mkShake myid infhash = B.concat [ B.singleton 19
+                                , C.pack "BitTorren protocol"
+                                , B.replicate 8 0
+                                , infhash
+                                , myid
+                                ]
+
 
 mkMsg :: Message -> B.ByteString
 mkMsg msg = unInt (B.length body) `B.append` body
@@ -90,3 +96,15 @@ mkMsg msg = unInt (B.length body) `B.append` body
         Request  x y z -> 6 `B.cons` (B.concat . map unInt) [x, y, z]
         Piece    x y z -> 7 `B.cons` B.concat [unInt x, unInt y, z]
         Cancel   x y z -> 8 `B.cons` (B.concat . map unInt) [x, y, z]
+
+----------------------------------------
+-- HELPERS
+----------------------------------------
+
+-- parse a 4-bit big-endian integer
+bigEnd = (sum . zipWith (*) (iterate (* 256) 1) . map fromIntegral . reverse . B.unpack) <$> take 4
+
+unInt :: Int -> B.ByteString
+unInt int = B.pack [ fromIntegral $ 255 .&. shiftR int part 
+                   | part <- [24, 16, 8, 0]
+                   ]

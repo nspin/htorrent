@@ -1,7 +1,11 @@
-module Main where
+module Main
+    ( main
+    ) where
+
+import Curry.State
 
 main :: IO ()
-main = return ()
+main = undefined
 
--- config :: SP
+-- config :: Global
 -- config = 

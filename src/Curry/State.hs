@@ -2,7 +2,7 @@
 
 module Curry.State where
 
-import           Curry.PWP
+import           Curry.Parsers.PWP
 
 import           Control.Concurrent.Chan
 import           Control.Concurrent.MVar
@@ -87,7 +87,7 @@ data Torp = Torp
     { infoHash  :: B.ByteString
     , trackers  :: Trackers
     , funfo     :: Funfo
-    , fileStuff :: Either (FileInfo String) (String, [FileInfo [String]])
+    , fileDesc  :: FileDesc
     , pieceMap  :: M.Map Int (Either B.ByteString B.ByteString)
     , uploaded  :: Int
     } deriving (Eq, Ord, Read, Show, Data, Typeable)
@@ -99,11 +99,14 @@ data Trackers = Trackers
     } deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 data Funfo = Funfo
-    { comment       :: Maybe String
+    { comment      :: Maybe String
     , createdBy    :: Maybe String
-    , creationDate :: Maybe Int
+    , creationDate :: Maybe String
     } deriving (Eq, Ord, Read, Show, Data, Typeable)
 
+data FileDesc = One (FileInfo String) | Many String [FileInfo [String]]
+  deriving (Eq, Ord, Read, Show, Data, Typeable)
+    
 data FileInfo a = FileInfo
     { name   :: a
     , len    :: Int

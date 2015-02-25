@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Curry.Bencode
+module Curry.Parsers.Bencode
     ( BValue(..)
     , getBVal
     , getString
