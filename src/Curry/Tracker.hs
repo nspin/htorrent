@@ -37,7 +37,7 @@ import           Prelude hiding (GT)
 askTrack :: Global -> Tomp -> AcidState Tacid -> IO ()
 askTrack Global{..} Tomp{..} acid = forever $ do
 
-    sp@SP{..} <- query' acid AskSP
+    SP{..} <- query' acid AskSP
 
     -- Update uploaded from channel
     up <- getChanContents upChan >>= (update acid . AddUps)
@@ -60,11 +60,11 @@ askTrack Global{..} Tomp{..} acid = forever $ do
             + maybe 0 (sum . map ((\(x, y) -> y - x) . fst) . M.toList) incomplete
         total = piece_length (info $ torrent metainfo) * length (pieces . info $ torrent metainfo)
 
-    resp <- liftIO $ W.get url
+    resp <- W.get url
 
-    liftIO $ print resp
+    print resp
 
-    liftIO $ threadDelay interval
+    threadDelay interval
     
 -- parseUncompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
 -- parseUncompressedPeers = fmap Left . (getList >=> mapM (getDict >=> \d ->

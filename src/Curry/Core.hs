@@ -1,21 +1,12 @@
 module Curry.Core where
 
-import           Curry.Types
+import           Curry.State
 import           Curry.Tracker
 
 import           Control.Concurrent
 import           Control.Concurrent.MVar
 import qualified Data.Map as M
 import           Data.Lens
-
-startup :: GP -> IO ()
-startup = undefined
-
-begin :: MetaInfo -> Reader (GP, GT) -> IO (AcidState ST)
-begin = undefined
-
-download :: ReaderT (GP, GT, acid)
-begin = undefined
 
 -- meet :: PeerID -> P ()
 -- meet di@(addr, prt) = do

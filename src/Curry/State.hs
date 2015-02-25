@@ -141,6 +141,7 @@ instance Show (Chan a) where
 $(deriveSafeCopy 0 'base ''Torp)
 $(deriveSafeCopy 0 'base ''Funfo)
 $(deriveSafeCopy 0 'base ''Trackers)
+$(deriveSafeCopy 0 'base ''FileDesc)
 $(deriveSafeCopy 0 'base ''FileInfo)
 
 $(makeAcidic ''Torp ['askTorp, 'putTorp])

@@ -8,6 +8,7 @@ module Curry.Parsers.Bencode
     , getList
     , getDict
     , hashify
+    , leekup
     ) where
 
 import           Control.Applicative
@@ -59,37 +60,46 @@ parseMid start middle = char start *> middle <* char 'e'
 
 -- Extract raw bytestring of info key (if it exists), and calculate infohash
 -- Note that >=>'s presidence is lower than that of >>=
-hashify :: B.ByteString -> Maybe B.ByteString
-hashify = fmap hash . (maybeResult . parse rawDict >=> lookup "info")
+hashify :: B.ByteString -> Either String B.ByteString
+hashify = fmap hash . (eitherResult . parse rawDict >=> leekup "info")
 
 -- Parses a bencoded dictionary, leaving values as raw bytestrings
 rawDict :: Parser [(String, B.ByteString)]
 rawDict = parseDict $ fst <$> match parseBVal
 
 ----------------------------------------
--- PARSING-GETTER-THINGS (a -> Maybe b)
+-- PARSING-GETTER-THINGS (a -> Either String b)
 ----------------------------------------
 
 -- Type signature says all.
 
-getBVal :: B.ByteString -> Maybe BValue
-getBVal = maybeResult . parse parseBVal
+getBVal :: B.ByteString -> Either String BValue
+getBVal = eitherResult . parse parseBVal
 
 -- Four getters for extracting info from bvals, one for each constructor
 -- (the least interesting part of this module)
 
-getString :: BValue -> Maybe B.ByteString
-getString (BString v) = Just v
-getString _ = Nothing
+getString :: BValue -> Either String B.ByteString
+getString (BString v) = Right v
+getString b = Left ("The following BValue is not a BString:\n" ++ show b)
 
-getInt :: BValue -> Maybe Int
-getInt (BInt v) = Just v
-getInt _ = Nothing
+getInt :: BValue -> Either String Int
+getInt (BInt v) = Right v
+getInt b = Left ("The following BValue is not an BInt:\n" ++ show b)
 
-getList :: BValue -> Maybe [BValue]
-getList (BList v) = Just v
-getList _ = Nothing
+getList :: BValue -> Either String [BValue]
+getList (BList v) = Right v
+getList b = Left ("The following BValue is not a BList:\n" ++ show b)
 
-getDict :: BValue -> Maybe [(String, BValue)]
-getDict (BDict v) = Just v
-getDict _ = Nothing
+getDict :: BValue -> Either String [(String, BValue)]
+getDict (BDict v) = Right v
+getDict b = Left ("The following BValue is not a BDict:\n" ++ show b)
+
+----------------------------------------
+-- MISC
+----------------------------------------
+
+leekup :: Show a => String -> [(String, a)] -> Either String a
+leekup key dict = case lookup key dict of
+    Just val -> Right val
+    Nothing -> Left ("Could not find key \"" ++ key ++ "\" in the following BDict:\n" ++ show dict)
