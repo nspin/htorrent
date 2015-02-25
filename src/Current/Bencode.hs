@@ -1,5 +1,6 @@
 module Current.Bencode
-    ( getBVal
+    ( BValue{..}
+    , getBVal
     , getString
     , getInt
     , getList
@@ -16,6 +17,19 @@ import           Data.List
 import           Data.Attoparsec.ByteString.Char8 as P
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
+
+-- A bencoded value.
+-- Note that bdict keys are strings, not bytestrings (or, if you prefer,
+-- that bstrings are bytestrings). These are different because bstrings
+-- may be binary data, whereas (in all implementations I know of) keys
+-- are always text. Storing keys as strings allows string literals to
+-- be used in lookup (rather than packing for each lookup, which is not
+-- very efficient).
+data BValue = BString B.ByteString
+            | BInt Int
+            | BList [BValue]
+            | BDict [(String, BValue)]
+            deriving (Eq, Show, Data, Typeable)
 
 ----------------------------------------
 -- PARSERS

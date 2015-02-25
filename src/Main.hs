@@ -1,7 +1,7 @@
 module Main where
 
 main :: IO ()
-main = do
+main = return ()
 
-config :: SP
-config = 
+-- config :: SP
+-- config = 

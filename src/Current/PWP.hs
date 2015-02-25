@@ -15,6 +15,19 @@ import qualified Data.ByteString.Char8 as C
 import           Data.List
 import           Data.Word
 
+data Message = Keepalive
+             | Choke
+             | Unchoke
+             | Intersted
+             | Bored
+             | Have Int
+             | Bitfield B.ByteString
+             | Request Int Int Int
+             | Piece Int Int B.ByteString
+             | Cancel Int Int Int
+             deriving Show
+
+
 getHand :: B.ByteString -> Maybe Handshake
 getHand = maybeResult . parse parseShake
 
