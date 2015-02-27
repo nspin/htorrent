@@ -8,6 +8,13 @@ import           Control.Concurrent.MVar
 import qualified Data.Map as M
 import           Data.Lens
 
+download :: String -> IO ()
+download meta = undefined
+
+continue :: String -> String -> IO ()
+continue meta partial = undefined
+    
+
 -- meet :: PeerID -> P ()
 -- meet di@(addr, prt) = do
 --     (ihash, mid) <- asks infoT

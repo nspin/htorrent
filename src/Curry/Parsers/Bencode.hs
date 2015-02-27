@@ -2,7 +2,7 @@
 
 module Curry.Parsers.Bencode
     ( BValue(..)
-    , getBVal
+    , getBValue
     , getString
     , getInt
     , getList
@@ -73,8 +73,8 @@ rawDict = parseDict $ fst <$> match parseBVal
 
 -- Type signature says all.
 
-getBVal :: B.ByteString -> Either String BValue
-getBVal = eitherResult . parse parseBVal
+getBValue :: B.ByteString -> Either String BValue
+getBValue = eitherResult . parse parseBVal
 
 -- Four getters for extracting info from bvals, one for each constructor
 -- (the least interesting part of this module)

@@ -1,7 +1,6 @@
 mmap(2): System.IO.MMap
 still acid?
 more bin/cans
-readonly/writeonly chans/mvars?
 MVar [PeerID] for listener and trackerspawner, [Peer] for brain
 Peer must have MVar () - dropped
 

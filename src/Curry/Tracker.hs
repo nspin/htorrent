@@ -56,8 +56,6 @@ urify8 byte = ['%', toHexHalf $ shiftR byte 4, toHexHalf $ byte .&. 15]
 toHexHalf :: Word8 -> Char
 toHexHalf = genericIndex "0123456789ABCDEF"
 
----------------------------------------------------------------------
-
 -- Event for tracker http requests
 
 data Travent = Started | Stopped | Complete
@@ -67,60 +65,61 @@ instance Show Travent where
     show Stopped  = "stopped"
     show Complete = "complete"
 
+---------------------------------------------------------------------
 
--- A tracker event
-data Travent = Started | Stopped | Complete deriving Show
+-- -- A tracker event
+-- data Travent = Started | Stopped | Complete deriving Show
 
--- Regularly gets updated info (and keepalives) from tracker,
--- spawing new processes for each new peer reported and adding
--- information about the processes to ST for the brain module.
+-- -- Regularly gets updated info (and keepalives) from tracker,
+-- -- spawing new processes for each new peer reported and adding
+-- -- information about the processes to ST for the brain module.
 
--- TODO: renew and use this info (StateT (interval, trackerId, peersAddedSoFar))
--- data TompE = TompE
---     { interval  :: Int
---     , trackerId :: Maybe B.ByteString
---     , peerCan   :: Chan Peer
---     } deriving Show
+-- -- TODO: renew and use this info (StateT (interval, trackerId, peersAddedSoFar))
+-- -- data TompE = TompE
+-- --     { interval  :: Int
+-- --     , trackerId :: Maybe B.ByteString
+-- --     , peerCan   :: Chan Peer
+-- --     } deriving Show
 
-askTrack :: Global -> AcidState Tacid -> Chan Peer -> IO ()
-askTrack Global{..} acid peerCan = forever $ do
+-- askTrack :: Global -> AcidState Tacid -> Chan Peer -> IO ()
+-- askTrack Global{..} acid peerCan = forever $ do
 
-    SP{..} <- query' acid AskSP
+--     SP{..} <- query' acid AskSP
 
-    let url = announce (torrent $ metainfo) ++ "?" ++ intercalate "&"
-              ( maybeToList $ fmap (("trackerid=" ++) . urifyBS) trackerId
-             ++ [ "info_hash="  ++ urifyBS (info_hash metainfo)
-                , "peer_id="    ++ urifyBS id
-                , "port="       ++ show portM
-                , "uploaded="   ++ show up
-                , "downloaded=" ++ show downloaded
-                , "left="       ++ show (total - downloaded)
-                -- , "ip="         ++
-                , "key="        ++ urifyBS key
-                ]
-              )
-        downloaded = piece_length (info $ torrent metainfo) * M.size complete
-            + maybe 0 (sum . map ((\(x, y) -> y - x) . fst) . M.toList) incomplete
-        total = piece_length (info $ torrent metainfo) * length (pieces . info $ torrent metainfo)
+--     let url = announce (torrent $ metainfo) ++ "?" ++ intercalate "&"
+--               ( maybeToList $ fmap (("trackerid=" ++) . urifyBS) trackerId
+--              ++ [ "info_hash="  ++ urifyBS (info_hash metainfo)
+--                 , "peer_id="    ++ urifyBS id
+--                 , "port="       ++ show portM
+--                 , "uploaded="   ++ show up
+--                 , "downloaded=" ++ show downloaded
+--                 , "left="       ++ show (total - downloaded)
+--                 -- , "ip="         ++
+--                 , "key="        ++ urifyBS key
+--                 ]
+--               )
+--         downloaded = piece_length (info $ torrent metainfo) * M.size complete
+--             + maybe 0 (sum . map ((\(x, y) -> y - x) . fst) . M.toList) incomplete
+--         total = piece_length (info $ torrent metainfo) * length (pieces . info $ torrent metainfo)
 
-    resp <- W.get url
+--     resp <- W.get url
 
-    print resp
+--     print resp
 
-    threadDelay interval
+--     threadDelay interval
     
--- parseUncompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
--- parseUncompressedPeers = fmap Left . (getList >=> mapM (getDict >=> \d ->
---     do peer_id' <- lookup "peer id" d >>= getString
---        ip'      <- lookup "ip"      d >>= getString
---        port'    <- lookup "port"    d >>= getInt
---        return (peer_id', C.unpack ip', port')))
+-- -- parseUncompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
+-- -- parseUncompressedPeers = fmap Left . (getList >=> mapM (getDict >=> \d ->
+-- --     do peer_id' <- lookup "peer id" d >>= getString
+-- --        ip'      <- lookup "ip"      d >>= getString
+-- --        port'    <- lookup "port"    d >>= getInt
+-- --        return (peer_id', C.unpack ip', port')))
 
--- parseCompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
--- parseCompressedPeers = fmap (Right . map aux . chunksOf 6 . B.unpack) . getString
---   where aux [a, b, c, d, e, f] = ( intercalate "." $ map show [a, b, c, d]
---                                  , fromIntegral e * 256 + fromIntegral f
---                                  )
+-- -- parseCompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
+-- -- parseCompressedPeers = fmap (Right . map aux . chunksOf 6 . B.unpack) . getString
+-- --   where aux [a, b, c, d, e, f] = ( intercalate "." $ map show [a, b, c, d]
+-- --                                  , fromIntegral e * 256 + fromIntegral f
+-- --                                  )
 
-mkURL :: 
+-- mkURL :: 
 

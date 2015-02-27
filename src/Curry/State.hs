@@ -1,64 +1,73 @@
-{-# LANGUAGE TemplateHaskell, TypeFamilies, DeriveDataTypeable, RecordWildCards #-}
-
 module Curry.State where
 
-import           Curry.Parsers.PWP
+import           Curry.Parsers.Torrent
 
+import           Control.Concurrent.Chan
 import           Control.Concurrent.Chan.ReadOnly
-import           Control.Concurrent.MVar.ReadOnly
 import           Control.Concurrent.Chan.WriteOnly
+import           Control.Concurrent.MVar
+import           Control.Concurrent.MVar.ReadOnly
 import           Control.Concurrent.MVar.WriteOnly
-import           Control.Monad.Reader
-import           Control.Monad.State
-import           Data.Acid
-import           Data.Bits
 import qualified Data.ByteString as B
-import           Data.Data
-import           Data.List
 import qualified Data.Map as M
-import           Data.Maybe
-import           Data.SafeCopy
-import           Data.Typeable
-import           Data.Word
 import           Network.Socket
 import           System.IO
 
 ----------------------------------------
--- VARIOUS SORTS OF STATE
+-- COMMON TO THE ENTIRE INSANCE
 ----------------------------------------
 
--- State common to all torrents for this specific instance of the client
-data Global = Global
-    { port     :: Integer -- should this be specific to dl?
-    , pid      :: B.ByteString
-    , key      :: B.ByteString
-    , minPeers :: Integer
-    , maxPeers :: Integer
+data GlobalEnv = GlobalEnv
+    { metaInfo :: MetaInfo
+    }
+
+----------------------------------------
+-- SPECIFIC TO COMMUNICATION THREADS
+----------------------------------------
+
+-- Environment for a variable
+data CommEnv = CommEnv
+    { port       :: Integer
+    , pid        :: B.ByteString
+    , key        :: B.ByteString
+    , pids       :: MVar [B.ByteString] -- peers that have been connected to so far
+    , commUps    :: ReadOnlyChan Integer
+    , commDowns  :: ReadOnlyChan Integer
     } deriving Show
 
-------------------------------------------------
+data CommSt = CommSt
+    { trackerID   :: B.ByteString
+    , interval    :: Integer
+    , minIntervel :: Integer
+    , downloaded  :: Integer
+    , uploaded    :: Integer
+    }
 
--- [To]rrent te[mp]orary state and environment
+----------------------------------------
+-- SPECIFIC TO BRAIN THREADS
+----------------------------------------
 
--- TODO: env only has >> peerCan :: Chan Peer
+data BrainEnv = BrainEnv
+    { peerOut    :: ReadOnlyChan Peer
+    , brainUps   :: WriteOnlyChan Integer
+    , brainDowns :: WriteOnlyChan Integer
+    }
 
-data Tomp = Tomp
-    { peers     :: [Peer]
-    , chunkNum  :: Integer
-    , chunkProg :: M.Map Chunk B.ByteString
+data BrainSt = BrainSt
+    { pieceNum   :: Integer
+    , piecePart  :: M.Map Chunk B.ByteString
+    , pieceMap   :: M.Map Integer (Either B.ByteString  Handle)
+    , peers      :: [Peer]
     } deriving Show
 
 -- Information about a specific peer. Always exists in an MVar
 data Peer = Peer
-    { channel  :: MVar Message
-    , mstuff   :: PeerMut
-    } deriving Show
-
-data PeerMut = PeerMut
-    { up     :: ReadOnlyMVar Integer
-    , has    :: ReadOnlyMVar (M.Map Integer Bool)
-    , chunks :: ReadOnlyChan [(Chunk, B.ByteString)]
-    , status :: MVar Status
+    { socket  :: Socket
+    , status  :: MVar Status
+    , up      :: ReadOnlyMVar Integer
+    , has     :: ReadOnlyMVar (M.Map Integer Bool)
+    , chunks  :: ReadOnlyChan [(Chunk, B.ByteString)]
+    , close   :: MVar ()
     } deriving Show
 
 data Chunk = Chunk
@@ -74,42 +83,6 @@ data Status = Status
     , interesting :: Bool
     } deriving Show
 
-------------------------------------------------
-
--- [Tor]rent [p]ersistent state.
-data Torp = Torp
-    { infoHash   :: B.ByteString
-    , funfo      :: Funfo
-    , fileDesc   :: FileDesc
-    , size       :: Integer
-    , downloaded :: Integer
-    , uploaded   :: Integer
-    , trackers   :: Trackers
-    , pieceLen   :: Integer
-    , pieceMap   :: M.Map Integer (Either B.ByteString  Handle)
-    } deriving (Eq, Ord, Read, Show, Data, Typeable)
-
-data Funfo = Funfo
-    { comment      :: Maybe String
-    , createdBy    :: Maybe String
-    , creationDate :: Maybe String
-    } deriving (Eq, Ord, Read, Show, Data, Typeable)
-
-data Trackers = Trackers
-    { announce     :: String
-    , announceList :: [String]
-    , private      :: Bool
-    } deriving (Eq, Ord, Read, Show, Data, Typeable)
-
-data FileDesc = One (FileInfo String) | Many String [FileInfo [String]]
-  deriving (Eq, Ord, Read, Show, Data, Typeable)
-    
-data FileInfo a = FileInfo
-    { name   :: a
-    , len    :: Integer
-    , md5sum :: Maybe B.ByteString
-    } deriving (Eq, Ord, Read, Show, Data, Typeable)
-
 ----------------------------------------
 -- CETERA
 ----------------------------------------
@@ -121,5 +94,17 @@ data FileInfo a = FileInfo
 instance Show (MVar a) where
     show _ = "(an mvar exists here)"
 
+instance Show (ReadOnlyMVar a) where
+    show _ = "(a readonly mvar exists here)"
+
+instance Show (WriteOnlyMVar a) where
+    show _ = "(a writeonly mvar exists here)"
+
 instance Show (Chan a) where
     show _ = "(an mvar exists here)"
+
+instance Show (ReadOnlyChan a) where
+    show _ = "(a readonly chan exists here)"
+
+instance Show (WriteOnlyChan a) where
+    show _ = "(a writeonly chan exists here)"
