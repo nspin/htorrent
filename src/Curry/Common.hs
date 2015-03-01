@@ -7,7 +7,7 @@ module Curry.Common
     , MCtrl
     , MView
     , newMSplit
-    , modifyMCrl
+    , modifyMCtrl
     , readMView
     , CountCtrl
     , CountView
@@ -16,6 +16,9 @@ module Curry.Common
     , readCount
     ) where
 
+import Control.Concurrent.MVar
+import Control.Concurrent.STM
+
 ----------------------------------------
 -- SIMPLE SAFELY WRAPPED CONCURRENT TYPES
 ----------------------------------------
@@ -23,13 +26,13 @@ module Curry.Common
 -- These are all thread safe because ALL threads modifying the wrapped mvars
 -- will use a single take and single put, so they are guarenteed to be atomic.
 
-data ChuteIn  a = ChuteIn  (MVar a) deriving Show
-data ChuteOut a = ChuteOut (MVar a) deriving Show
+data ChuteIn  a = ChuteIn  (MVar [a]) deriving Show
+data ChuteOut a = ChuteOut (MVar [a]) deriving Show
 
 newChute :: IO (ChuteIn a, ChuteOut a)
 newChute = do
     mvar <- newMVar []
-    return (ChuteIn mvar, ChuteOUt mvar)
+    return (ChuteIn mvar, ChuteOut mvar)
 
 putChute :: ChuteIn a -> a -> IO ()
 putChute (ChuteIn mvar) x = do
@@ -46,8 +49,8 @@ data MCtrl a = MCtrl (MVar a) deriving Show
 data MView a = MView (MVar a) deriving Show
 
 newMSplit :: IO (MCtrl a, MView a)
-newMSplit x = do
-    mvar <- newMVar x
+newMSplit = do
+    mvar <- newEmptyMVar
     return (MCtrl mvar, MView mvar)
 
 readMView :: MView a -> IO a
@@ -61,8 +64,8 @@ modifyMCtrl (MCtrl mvar) f = do
     x <- takeMVar mvar
     putMVar mvar (f x)
 
-data CountCtrl a = MCountCtrl (MVar a) deriving Show
-data CountView a = MCountView (MVar a) deriving Show
+data CountCtrl a = CountCtrl (MVar a) deriving Show
+data CountView a = CountView (MVar a) deriving Show
 
 newCount :: Num a => IO (CountCtrl a, CountView a)
 newCount = do
@@ -75,7 +78,20 @@ addCount (CountCtrl mvar) y = do
     putMVar mvar (x + y)
 
 readCount :: CountView a -> IO a
-readCount (ChuteView mvar) = do
+readCount (CountView mvar) = do
     x <- takeMVar mvar
-    putMVar x
+    putMVar mvar x
     return x
+
+----------------------------------------
+-- CETERA
+----------------------------------------
+
+-- To allow types with MVars and TVars to allow show (which will only be
+-- used for debugging)
+
+instance Show (MVar a) where
+    show _ = "(an mvar exists here)"
+
+instance Show (TVar a) where
+    show _ = "(a tvar exists here)"

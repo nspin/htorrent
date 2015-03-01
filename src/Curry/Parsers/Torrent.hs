@@ -22,7 +22,6 @@ import           Data.Maybe
 data MetaInfo = MetaInfo
     { infoHash :: B.ByteString
     , torrent  :: Torrent
-    , size     :: Integer
     } deriving Show
 
 -- Internal representation of a .torrent file
@@ -113,11 +112,11 @@ getInfo = getDict >=> \info -> do
 -- AUX
 ----------------------------------------
 
-instance MonadPlus (Either String) where
-    mzero = Left "mzero"
-    mplus r@(Right _) _  = r
-    mplus _ r@(Right _) = r
-    mplus _ l@(Left  _) = l
+-- instance MonadPlus (Either String) where
+--     mzero = Left "mzero"
+--     mplus r@(Right _) _  = r
+--     mplus _ r@(Right _) = r
+--     mplus _ l@(Left  _) = l
 
 eitherToMaybe :: Either a b -> Maybe b
 eitherToMaybe (Right x) = Just x

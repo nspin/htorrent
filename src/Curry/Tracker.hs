@@ -14,35 +14,29 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.Trans
-import           Data.Acid
-import           Data.Acid.Advanced
+import           Data.Attoparsec.ByteString
 import           Data.Bits
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Char8 as C
 import           Data.Char
-import           Data.Word
 import           Data.List
 import           Data.List.Split
 import qualified Data.Map as M
 import           Data.Maybe
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.Char8 as C
-import           Data.Attoparsec.ByteString
-import           Data.Maybe
+import           Data.Word
 import qualified Network.Wreq as W
-import           Prelude hiding (GT)
 
--- Our monad stack
-type Communication a = ReaderT GlobalEnv (ReaderT CommEnv (StateT CommSt IO a))
+-- Event for tracker http requests
+data Travent = Started | Stopped | Complete
 
-track :: Communication ()
-track = do
+instance Show Travent where
+    show Started  = "started"
+    show Stopped  = "stopped"
+    show Complete = "complete"
 
-mkURL :: Travent -> Communication String
-mkURL event = do
-    CommEnv MetaInfo{..} pieceMap <- ask
-    CommEnv{..} <- lift ask
-    CommSt{..} <- lift $ lift get
-
+mkURL :: Environment -> CommSt -> Travent -> STM String
+mkURL Environment{..} CommSt{..} event = do
     announce trackers ++ "?" ++ intercalate "&"
       ( catMaybes [ fmap (("trackerid=" ++) . urifyBS) trackerId
                   , fmap (("event="     ++) . show   ) event
@@ -58,42 +52,6 @@ mkURL event = do
         ]
       )
 
-hearPeers :: GlobalEnv -> ChuteIn Peer -> (Socket, SockAddr) -> IO ()
-
-beFriend :: GlobalEnv -> ChuteIn Peer -> (Socket, SockAddr) -> IO ()
-beFriend GlobalEnv{..} chute (sock, _) = do
-    sendAll myShake
-    bytes <- revc 4096
-    case getShake bytes of
-        Left str -> putStrLn str
-        Right Handshake{..} -> do
-            return () -- check to make sure its valid
-            let status' = newMVar $ Status True True False False
-                (has', has) = newMView
-                (has', has) = newCount
-                (has', has) = newCount
-            putChute chute $ Peer sock status' has up down
-            go 
-  where go = do
-    bytes <- recv sock 4096
-    case getMessage bytes of
-        Left str -> putStrLn str
-        Right msg -> do
-            case msg of
-                Keepalive -> return ()
-                Choke -> modifyMVar status' $ \s -> s { choked = True }
-                Unchoke -> modifyMVar status' $ \s -> s { choked = False }
-                Interested -> modifyMVar status' $ \s -> s { interested = True }
-                Bored -> modifyMVar status' $ \s -> s { interested = False }
-                Have ix -> modifyMCtrl has' (insert ix True)
-                Bitfield m -> modifyMCtrl has' $ M.union m
-                Request ix off len -> putStrLn ("Peer requested chunk: " ++ show ix ++ ", " show off ++ ", " ++ show len)
-                Piece ix off bytes -> putStrLn ("Got chunk: " ++ show ix ++ ", " show off)
-                Cancel ix off len -> putStrLn ("Peer canceled chunk: " ++ show ix ++ ", " show off ++ ", " ++ show len)
-            go
-
----------------------------------------------------------------------
-
 urifyBS :: B.ByteString -> String
 urifyBS = concatMap urify8 . B.unpack
 
@@ -103,70 +61,124 @@ urify8 byte = ['%', toHexHalf $ shiftR byte 4, toHexHalf $ byte .&. 15]
 toHexHalf :: Word8 -> Char
 toHexHalf = genericIndex "0123456789ABCDEF"
 
--- Event for tracker http requests
 
-data Travent = Started | Stopped | Complete
+-- -- Our monad stack
+-- type Communication a = ReaderT GlobalEnv (ReaderT CommEnv (StateT CommSt IO a))
 
-instance Show Travent where
-    show Started  = "started"
-    show Stopped  = "stopped"
-    show Complete = "complete"
+-- track :: Communication ()
+-- track = do
 
----------------------------------------------------------------------
+-- mkURL :: Travent -> Communication String
+-- mkURL event = do
+--     CommEnv MetaInfo{..} pieceMap <- ask
+--     CommEnv{..} <- lift ask
+--     CommSt{..} <- lift $ lift get
 
--- -- A tracker event
--- data Travent = Started | Stopped | Complete deriving Show
+--     announce trackers ++ "?" ++ intercalate "&"
+--       ( catMaybes [ fmap (("trackerid=" ++) . urifyBS) trackerId
+--                   , fmap (("event="     ++) . show   ) event
+--                   ]
+--      ++ [ "peer_id="    ++ urifyBS pid
+--         , "port="       ++ show port
+--         -- , "numwant="    ++ show minPeers
+--         , "key="        ++ urifyBS key
+--         , "info_hash="  ++ urifyBS infoHash
+--         , "uploaded="   ++ show uploaded
+--         , "downloaded=" ++ show downloaded
+--         , "left="       ++ show (size - downloaded)
+--         ]
+--       )
 
--- -- Regularly gets updated info (and keepalives) from tracker,
--- -- spawing new processes for each new peer reported and adding
--- -- information about the processes to ST for the brain module.
+-- hearPeers :: GlobalEnv -> ChuteIn Peer -> (Socket, SockAddr) -> IO ()
 
--- -- TODO: renew and use this info (StateT (interval, trackerId, peersAddedSoFar))
--- -- data TompE = TompE
--- --     { interval  :: Int
--- --     , trackerId :: Maybe B.ByteString
--- --     , peerCan   :: Chan Peer
--- --     } deriving Show
+-- beFriend :: GlobalEnv -> ChuteIn Peer -> (Socket, SockAddr) -> IO ()
+-- beFriend GlobalEnv{..} chute (sock, _) = do
+--     sendAll myShake
+--     bytes <- revc 4096
+--     case getShake bytes of
+--         Left str -> putStrLn str
+--         Right Handshake{..} -> do
+--             return () -- check to make sure its valid
+--             let status' = newMVar $ Status True True False False
+--                 (has', has) = newMView
+--                 (has', has) = newCount
+--                 (has', has) = newCount
+--             putChute chute $ Peer sock status' has up down
+--             go
+--   where go = do
+--     bytes <- recv sock 4096
+--     case getMessage bytes of
+--         Left str -> putStrLn str
+--         Right msg -> do
+--             case msg of
+--                 Keepalive -> return ()
+--                 Choke -> modifyMVar status' $ \s -> s { choked = True }
+--                 Unchoke -> modifyMVar status' $ \s -> s { choked = False }
+--                 Interested -> modifyMVar status' $ \s -> s { interested = True }
+--                 Bored -> modifyMVar status' $ \s -> s { interested = False }
+--                 Have ix -> modifyMCtrl has' (insert ix True)
+--                 Bitfield m -> modifyMCtrl has' $ M.union m
+--                 Request ix off len -> putStrLn ("Peer requested chunk: " ++ show ix ++ ", " show off ++ ", " ++ show len)
+--                 Piece ix off bytes -> putStrLn ("Got chunk: " ++ show ix ++ ", " show off)
+--                 Cancel ix off len -> putStrLn ("Peer canceled chunk: " ++ show ix ++ ", " show off ++ ", " ++ show len)
+--             go
 
--- askTrack :: Global -> AcidState Tacid -> Chan Peer -> IO ()
--- askTrack Global{..} acid peerCan = forever $ do
+-- ---------------------------------------------------------------------
+-- ---------------------------------------------------------------------
 
---     SP{..} <- query' acid AskSP
+-- -- -- A tracker event
+-- -- data Travent = Started | Stopped | Complete deriving Show
 
---     let url = announce (torrent $ metainfo) ++ "?" ++ intercalate "&"
---               ( maybeToList $ fmap (("trackerid=" ++) . urifyBS) trackerId
---              ++ [ "info_hash="  ++ urifyBS (info_hash metainfo)
---                 , "peer_id="    ++ urifyBS id
---                 , "port="       ++ show portM
---                 , "uploaded="   ++ show up
---                 , "downloaded=" ++ show downloaded
---                 , "left="       ++ show (total - downloaded)
---                 -- , "ip="         ++
---                 , "key="        ++ urifyBS key
---                 ]
---               )
---         downloaded = piece_length (info $ torrent metainfo) * M.size complete
---             + maybe 0 (sum . map ((\(x, y) -> y - x) . fst) . M.toList) incomplete
---         total = piece_length (info $ torrent metainfo) * length (pieces . info $ torrent metainfo)
+-- -- -- Regularly gets updated info (and keepalives) from tracker,
+-- -- -- spawing new processes for each new peer reported and adding
+-- -- -- information about the processes to ST for the brain module.
 
---     resp <- W.get url
+-- -- -- TODO: renew and use this info (StateT (interval, trackerId, peersAddedSoFar))
+-- -- -- data TompE = TompE
+-- -- --     { interval  :: Int
+-- -- --     , trackerId :: Maybe B.ByteString
+-- -- --     , peerCan   :: Chan Peer
+-- -- --     } deriving Show
 
---     print resp
+-- -- askTrack :: Global -> AcidState Tacid -> Chan Peer -> IO ()
+-- -- askTrack Global{..} acid peerCan = forever $ do
 
---     threadDelay interval
+-- --     SP{..} <- query' acid AskSP
 
--- -- parseUncompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
--- -- parseUncompressedPeers = fmap Left . (getList >=> mapM (getDict >=> \d ->
--- --     do peer_id' <- lookup "peer id" d >>= getString
--- --        ip'      <- lookup "ip"      d >>= getString
--- --        port'    <- lookup "port"    d >>= getInt
--- --        return (peer_id', C.unpack ip', port')))
+-- --     let url = announce (torrent $ metainfo) ++ "?" ++ intercalate "&"
+-- --               ( maybeToList $ fmap (("trackerid=" ++) . urifyBS) trackerId
+-- --              ++ [ "info_hash="  ++ urifyBS (info_hash metainfo)
+-- --                 , "peer_id="    ++ urifyBS id
+-- --                 , "port="       ++ show portM
+-- --                 , "uploaded="   ++ show up
+-- --                 , "downloaded=" ++ show downloaded
+-- --                 , "left="       ++ show (total - downloaded)
+-- --                 -- , "ip="         ++
+-- --                 , "key="        ++ urifyBS key
+-- --                 ]
+-- --               )
+-- --         downloaded = piece_length (info $ torrent metainfo) * M.size complete
+-- --             + maybe 0 (sum . map ((\(x, y) -> y - x) . fst) . M.toList) incomplete
+-- --         total = piece_length (info $ torrent metainfo) * length (pieces . info $ torrent metainfo)
 
--- -- parseCompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
--- -- parseCompressedPeers = fmap (Right . map aux . chunksOf 6 . B.unpack) . getString
--- --   where aux [a, b, c, d, e, f] = ( intercalate "." $ map show [a, b, c, d]
--- --                                  , fromIntegral e * 256 + fromIntegral f
--- --                                  )
+-- --     resp <- W.get url
 
--- mkURL ::
+-- --     print resp
+
+-- --     threadDelay interval
+
+-- -- -- parseUncompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
+-- -- -- parseUncompressedPeers = fmap Left . (getList >=> mapM (getDict >=> \d ->
+-- -- --     do peer_id' <- lookup "peer id" d >>= getString
+-- -- --        ip'      <- lookup "ip"      d >>= getString
+-- -- --        port'    <- lookup "port"    d >>= getInt
+-- -- --        return (peer_id', C.unpack ip', port')))
+
+-- -- -- parseCompressedPeers :: BValue -> Maybe (Either [(B.ByteString, String, Integer)] [(String, Integer)])
+-- -- -- parseCompressedPeers = fmap (Right . map aux . chunksOf 6 . B.unpack) . getString
+-- -- --   where aux [a, b, c, d, e, f] = ( intercalate "." $ map show [a, b, c, d]
+-- -- --                                  , fromIntegral e * 256 + fromIntegral f
+-- -- --                                  )
+
+-- -- mkURL ::
 

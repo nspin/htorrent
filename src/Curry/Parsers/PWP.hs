@@ -15,6 +15,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import           Data.List hiding (take)
 import           Data.List.Split
+import qualified Data.Map as M
 import           Data.Word
 import           Prelude hiding (take)
 
@@ -34,7 +35,7 @@ data Message = Keepalive
              | Interested
              | Bored
              | Have Integer
-             | Bitfield (Map Integer Bool)
+             | Bitfield (M.Map Integer Bool)
              | Request Integer Integer Integer
              | Piece Integer Integer B.ByteString
              | Cancel Integer Integer Integer
@@ -84,7 +85,7 @@ mkShake myid infhash = B.concat [ B.singleton 19
 
 
 mkMsg :: Message -> B.ByteString
-mkMsg msg = unInt (B.length body) `B.append` body
+mkMsg msg = unInt (toInteger $ B.length body) `B.append` body
   where
     body = case msg of
         Keepalive      -> B.empty
@@ -105,24 +106,23 @@ mkMsg msg = unInt (B.length body) `B.append` body
 -- parse a 4-bit big-endian integer
 bigEnd = (sum . zipWith (*) (iterate (* 256) 1) . map fromIntegral . reverse . B.unpack) <$> take 4
 
-unInt :: Int -> B.ByteString
-unInt int = B.pack [ fromIntegral $ 255 .&. shiftR int part 
+unInt :: Integer -> B.ByteString
+unInt int = B.pack [ fromIntegral $ 255 .&. shiftR int part
                    | part <- [24, 16, 8, 0]
                    ]
 
-bitField :: Map Integer Bool -> B.ByteString
+bitField :: M.Map Integer Bool -> B.ByteString
 bitField = B.pack . unBitList . map snd . M.toList
 
-unBitField :: B.ByteString -> Map Integer Bool
-unBitField bits = M.fromList $ [0..] `zip` bitList (B.unpack bits))
+unBitField :: B.ByteString -> M.Map Integer Bool
+unBitField bits = M.fromList . zip [0..] . concatMap bitList $ B.unpack bits
 
 bitList :: Word8 -> [Bool]
 bitList w = map (testBit w) [0..7]
 
 unBitList :: [Bool] -> [Word8]
-unBitList bits = [ foldl 0 ($) [ (`setBit` ix)
-                               | (ix, bit) <- zip [0..] someBits
-                               , bit
-                               ]
-                 | someBits <- chunksOf 8 bits
-                 ]
+unBitList = map ( foldl (.|.) 0
+                . map (bit . fst)
+                . filter snd
+                . zip [7, 6..]
+                ) . chunksOf 8

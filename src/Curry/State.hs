@@ -1,10 +1,10 @@
 module Curry.State where
 
+import           Curry.Common
 import           Curry.Parsers.Torrent
 
-import           Control.Concurrent.MVar
-import           Control.Concurrent.MVar.ReadOnly
-import           Control.Concurrent.MVar.WriteOnly
+import           Control.Concurrent.STM
+import           Control.Monad.Reader
 import qualified Data.ByteString as B
 import qualified Data.Map as M
 import           Network.Socket
@@ -16,7 +16,7 @@ import           System.IO
 -- control more granular.
 ----------------------------------------
 
-type Curry = ReaderT Environment
+type Curry = Reader Environment
 
 ----------------------------------------
 -- COMMON TO THE ENTIRE INSANCE
@@ -26,7 +26,7 @@ data Environment = Environment
     { config    :: Config
     , identity  :: Identity
     , metaInfo  :: MetaInfo
-    , currPiece :: TVar Map Chunk B.ByteString
+    , currPiece :: TVar (M.Map Chunk B.ByteString)
     , pieceMap  :: TVar (M.Map Integer (Maybe  Handle))
     , peers     :: TVar [Peer]
     } deriving Show
@@ -42,19 +42,21 @@ data Identity = Identity
     , key        :: B.ByteString -- our key (random)
     } deriving Show
 
+-- Information about a part of a piece
 data Chunk = Chunk
     { index :: Integer
     , start :: Integer
     , end   :: Integer
     } deriving (Show, Eq, Ord)
 
--- Information about a specific peer. Always exists in an MVar
+-- Information about a specific peer.
 data Peer = Peer
     { socket  :: Socket
     , theirID :: B.ByteString -- out peer id (random)
     , mut     :: TVar MutPeer
     } deriving Show
 
+-- What a specific peer thread has
 data MutPeer = MutPeer
     { status  :: Status
     , has     :: (M.Map Integer Bool)
@@ -79,19 +81,3 @@ data CommSt = CommSt
     , interval    :: Integer -- from tracker
     , minIntervel :: Integer -- from tracker
     }
-
-data BrainSt = BrainSt
-    { pieceNum   :: Integer
-    , piecePart  :: M.Map Chunk B.ByteString
-    , peers      :: MVar [Peer]
-    } deriving Show
-
-----------------------------------------
--- CETERA
-----------------------------------------
-
--- To allow types with MVars to allow show (which will only be
--- used for debugging)
-
-instance Show (MVar a) where
-    show _ = "(an mvar exists here)"
