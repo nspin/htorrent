@@ -11,67 +11,35 @@ import           Network.Socket
 import           System.IO
 
 ----------------------------------------
+-- OUR MONAD STACK (likely to change as
+-- I decide to make the concurrency
+-- control more granular.
+----------------------------------------
+
+type Curry = ReaderT Environment
+
+----------------------------------------
 -- COMMON TO THE ENTIRE INSANCE
 ----------------------------------------
 
 data Environment = Environment
+    { config    :: Config
+    , identity  :: Identity
+    , metaInfo  :: MetaInfo
+    , currPiece :: TVar Map Chunk B.ByteString
+    , pieceMap  :: TVar (M.Map Integer (Maybe  Handle))
+    , peers     :: TVar [Peer]
+    } deriving Show
+
+data Config = Config
     { minPeers :: Integer
     , maxPeers :: Integer
-    { metaInfo :: MetaInfo
-    , pieceMap :: MVar (M.Map Integer (Maybe  Handle))
-    , totalUp  :: MVar Integer -- tally of total downloaded
-    { peerChute:: MVar Peer
-    , chunkCan :: MVar [(Chunk, B.ByteString)]
+    } deriving Show
+
+data Identity = Identity
     { port       :: Integer -- port listening on
     , pid        :: B.ByteString -- out peer id (random)
     , key        :: B.ByteString -- our key (random)
-    , pids       :: MVar [B.ByteString] -- peers that have been connected to so far
-    } deriving Show
-
-    , chunks'  :: ChuteOut [(Chunk, B.ByteString)]
-    , totalUp' :: CountCtrl Integer -- tally of total uploaded (shared with
-
-
-----------------------------------------
--- SPECIFIC TO COMMUNICATION THREAD
-----------------------------------------
-
-data CommSt = CommSt
-    { trackerID   :: B.ByteString -- our tracker id
-    , interval    :: Integer -- from tracker
-    , minIntervel :: Integer -- from tracker
-    }
-
-----------------------------------------
--- SPECIFIC TO FRIENDHSIP THREADS
-----------------------------------------
-
-data FriendEnv = FriendEnv
-    { mut'     :: MutPeer
-    }
-
-data MutPeer = MutPeer
-    , status  :: MVar Status
-    , has     :: MVar (M.Map Integer Bool)
-    , up      :: MVar Integer
-    , down    :: MVar Integer
-    } deriving Show
-
-----------------------------------------
--- SPECIFIC TO BRAIN THREADS
-----------------------------------------
-
-data BrainSt = BrainSt
-    { pieceNum   :: Integer
-    , piecePart  :: M.Map Chunk B.ByteString
-    , peers      :: MVar [Peer]
-    } deriving Show
-
--- Information about a specific peer. Always exists in an MVar
-data Peer = Peer
-    { socket  :: Socket
-    , theirID :: B.ByteString -- out peer id (random)
-    , mut     :: MutPeer
     } deriving Show
 
 data Chunk = Chunk
@@ -80,11 +48,42 @@ data Chunk = Chunk
     , end   :: Integer
     } deriving (Show, Eq, Ord)
 
+-- Information about a specific peer. Always exists in an MVar
+data Peer = Peer
+    { socket  :: Socket
+    , theirID :: B.ByteString -- out peer id (random)
+    , mut     :: TVar MutPeer
+    } deriving Show
+
+data MutPeer = MutPeer
+    { status  :: Status
+    , has     :: (M.Map Integer Bool)
+    , up      :: Integer
+    , down    :: Integer
+    } deriving Show
+
 data Status = Status
     { choked      :: Bool
     , choking     :: Bool
     , interesting :: Bool
     , interested  :: Bool
+    } deriving Show
+
+----------------------------------------
+-- STATES FOR SPECIFIC THREADS (as the
+-- codebase grows, these will be moved)
+----------------------------------------
+
+data CommSt = CommSt
+    { trackerID   :: B.ByteString -- our tracker id
+    , interval    :: Integer -- from tracker
+    , minIntervel :: Integer -- from tracker
+    }
+
+data BrainSt = BrainSt
+    { pieceNum   :: Integer
+    , piecePart  :: M.Map Chunk B.ByteString
+    , peers      :: MVar [Peer]
     } deriving Show
 
 ----------------------------------------

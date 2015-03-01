@@ -12,11 +12,20 @@ import qualified Data.ByteString.Char8 as C
 import           Data.List
 import           Data.Maybe
 
+----------------------------------------
+-- TYPES
+----------------------------------------
+
+-- All of the general meta-meta info and meta-info relevant to a torrent.
+-- Size is in there for convenience (calculating left)
+
 data MetaInfo = MetaInfo
     { infoHash :: B.ByteString
     , torrent  :: Torrent
     , size     :: Integer
     } deriving Show
+
+-- Internal representation of a .torrent file
 
 data Torrent = Torrent
     { announce     :: String
@@ -43,6 +52,10 @@ data FileInfo a = FileInfo
     , md5sum :: Maybe B.ByteString
     } deriving Show
 
+----------------------------------------
+-- GETTERS
+----------------------------------------
+
 getMeta :: B.ByteString -> Either String MetaInfo
 getMeta bytes = MetaInfo <$> hashify bytes <*> (getBValue bytes >>= getTorrent)
 
@@ -63,7 +76,7 @@ getTorrent = getDict >=> \dict -> do
         (aux "createdBy")
         (aux "creationDate")
         info
-    
+
 getInfo :: BValue -> Either String Info
 getInfo = getDict >=> \info -> do
 
@@ -96,12 +109,16 @@ getInfo = getDict >=> \info -> do
         pieces
         fileDesc
 
+----------------------------------------
+-- AUX
+----------------------------------------
+
 instance MonadPlus (Either String) where
-    mzero = Left ""
+    mzero = Left "mzero"
     mplus r@(Right _) _  = r
     mplus _ r@(Right _) = r
     mplus _ l@(Left  _) = l
-        
+
 eitherToMaybe :: Either a b -> Maybe b
 eitherToMaybe (Right x) = Just x
 eitherToMaybe (Left  _) = Nothing

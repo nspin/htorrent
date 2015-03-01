@@ -44,10 +44,10 @@ data Message = Keepalive
 -- GETTERS
 ----------------------------------------
 
-getShake :: B.ByteString -> Either Handshake
+getShake :: B.ByteString -> Either String Handshake
 getShake = eitherResult . parse parseShake
 
-getMsg :: B.ByteString -> Either Message
+getMsg :: B.ByteString -> Either String Message
 getMsg = eitherResult . parse parseMsg
 
 parseShake = liftA3 Handshake (C.unpack <$> (fmap fromIntegral anyWord8 >>= take)) (take 20) (take 20)
