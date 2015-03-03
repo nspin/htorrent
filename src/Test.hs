@@ -1,7 +1,7 @@
 module Test where
 
 import           Curry.Tracker
-import           Curry.State
+import           Curry.Environment
 import           Curry.Parsers.Bencode
 import           Curry.Parsers.PWP
 import           Curry.Parsers.THP
@@ -13,15 +13,20 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
 import           Control.Concurrent.STM
 import           Control.Lens
+import           Control.Monad.Reader
+import           Control.Monad.Trans.State.Lazy
 import           Network.Simple.TCP
-import           Network.Socket.ByteString as S
-import           Network.Wreq
+import qualified Network.Socket as S
+import qualified Network.Socket.ByteString as SB
+import qualified Network.Wreq as W
 
 test name = do
+
     file <- B.readFile name
     a <- newTVarIO M.empty
     b <- newTVarIO M.empty
     c <- newTVarIO []
+
     let Right meta = getMeta file
         env = Environment
                 (Config 30 55)
@@ -30,17 +35,20 @@ test name = do
                 a
                 b
                 c
-    url <- atomically $ mkURL env (CommSt Nothing 0 0) Nothing
-    resp <- get url
+
+    url <- evalStateT (runReaderT (mkURL Nothing) env) (CommSt Nothing 0 0)
+    resp <- W.get url
+
     let Right thing = do
-            let bytes = L.toStrict $ resp ^. responseBody
-            rsp <- getBValue bytes >>= getResp 
+            let bytes = L.toStrict $ resp ^. W.responseBody
+            rsp <- getBValue bytes >>= getResp
             return $ head (pears rsp)
-        hs = mkShake $ Handshake ourProtocol (C.pack "thisisjustalittltest") (infoHash meta)
+        hs = B.concat [ourHead, B.pack $ replicate 8 0, infoHash meta, C.pack "thisisjustalittltest"]
+
     connect (pearIp thing) (show $ pearPort thing) $ \(s, _) -> do
         print "CONNECTED"
-        S.sendAll s hs
+        send s hs
         print "SENT"
         print hs
-        them <- S.recv s 4096
+        them <- recv s 128
         print them

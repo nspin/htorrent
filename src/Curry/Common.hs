@@ -3,6 +3,7 @@
 module Curry.Common
     ( eitherToMaybe
     , (<%>)
+    , (<+>)
     --
     -- , ChuteIn
     -- , ChuteOut
@@ -35,11 +36,14 @@ infixl 1 <%>
 (<%>) :: Applicative f => f (a -> b) -> a -> f b
 (<%>) = (. pure) . (<*>)
 
--- instance MonadPlus (Either String) where
---     mzero = Left "mzero"
---     mplus r@(Right _) _  = r
---     mplus _ r@(Right _) = r
---     mplus _ l@(Left  _) = l
+-- This is mplus, but (Either String) is already an instance
+-- for SOME e in certain modules, so trying to use the actual
+-- mplus class made things pretty messy.
+infixl 6 <+>
+(<+>) :: Either a b -> Either a b -> Either a b
+r@(Right _) <+> _ = r
+_ <+> r@(Right _) = r
+_ <+> l@(Left  _) = l
 
 ----------------------------------------
 -- SIMPLE SAFELY WRAPPED CONCURRENT TYPES

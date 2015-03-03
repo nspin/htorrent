@@ -13,6 +13,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import           Data.List
 import           Data.List.Split
+import           Data.Maybe
 import           Control.Applicative
 import           Control.Monad
 
@@ -40,7 +41,7 @@ getResp = getDict >=> \dict -> case leekup "failure reason" dict of
     Right bval -> fmap C.unpack (getString bval) >>= Left
     Left _ -> THPresp
            <$> (do prs <- leekup "peers" dict
-                   uncompressedPeers prs `mplus` compressedPeers prs)
+                   uncompressedPeers prs <+> compressedPeers prs)
            <*> (leekup "complete" dict >>= getInt)
            <*> (leekup "incomplete" dict >>= getInt)
            <*> (leekup "interval" dict >>= getInt)

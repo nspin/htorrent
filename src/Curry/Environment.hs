@@ -1,4 +1,4 @@
-module Curry.State where
+module Curry.Environment where
 
 import           Curry.Common
 import           Curry.Parsers.THP
@@ -14,8 +14,8 @@ import           System.IO
 
 ----------------------------------------
 -- OUR MONAD STACK (likely to change as
--- I decide to make the concurrency
--- control more granular.
+-- I decide to make concurrency
+-- control more granular.)
 ----------------------------------------
 
 -- type Curry = ReaderT Environment
@@ -71,15 +71,4 @@ data Status = Status
     , choking     :: Bool
     , interesting :: Bool
     , interested  :: Bool
-    } deriving Show
-
-----------------------------------------
--- STATES FOR SPECIFIC THREADS (as the
--- codebase grows, these will be moved)
-----------------------------------------
-
-data CommSt = CommSt
-    { trackerId   :: Maybe B.ByteString -- our tracker id
-    , interval    :: Integer -- from tracker
-    , minIntervel :: Integer -- from tracker
     } deriving Show

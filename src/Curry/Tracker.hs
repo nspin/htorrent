@@ -2,18 +2,21 @@
 
 module Curry.Tracker
     ( Travent(..)
+    , CommSt(..)
     , mkURL
     ) where
 
-import           Curry.State
+import           Curry.Environment
 import           Curry.Parsers.Bencode
 import           Curry.Parsers.PWP
+import           Curry.Parsers.THP
 import           Curry.Parsers.Torrent
 
 import           Control.Concurrent.STM
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Reader
+import           Control.Monad.Trans.State.Lazy
 import           Control.Monad.Trans
 import           Data.Attoparsec.ByteString
 import           Data.Bits
@@ -28,6 +31,21 @@ import           Data.Maybe
 import           Data.Word
 import qualified Network.Wreq as W
 
+type Tracking = ReaderT Environment IO
+
+-- type Tracking = ReaderT Environment (StateT CommSt IO)
+
+-- -- For convenience
+-- viewer :: (Environment -> CommSt -> IO a) -> Tracking a
+-- viewer f = ReaderT $ \env -> get >>= \comm -> lift (f env comm)
+
+-- Why now state of a state monad? Because is does not change enough.
+data CommSt = CommSt
+    { trackerIdST   :: Maybe B.ByteString -- our tracker id
+    , intervalST    :: Integer -- from tracker
+    , minIntervelST :: Maybe Integer -- from tracker
+    } deriving Show
+
 -- Event for tracker http requests
 data Travent = Started | Stopped | Complete
 
@@ -36,8 +54,30 @@ instance Show Travent where
     show Stopped  = "stopped"
     show Complete = "complete"
 
-mkURL :: Environment -> CommSt -> Maybe Travent -> STM String
-mkURL Environment{..} CommSt{..} event = do
+track :: CommSt -> Tracking ()
+track CommSt{..} = do
+    url <- ReaderT $ atomically . mkURL Nothing trackerIdST
+    wresp <- liftIO $ W.get url
+    let bytes = wresp ^. W.responseBody
+        rresp = getBValue (L.toStrict bytes) >>= getResp
+    case rresp of
+        Left issue -> liftIO $ putStrLn issue
+        Right resp -> do
+            let check :: ReaderT Environment STM 
+            mapM (forkIO . meet) destinations
+
+update :: TVar [Peer] -> [Pear] -> STM [IO ()]
+update tvpeers pears = do
+    peers <- readTVar tvpeers
+    let fpears = filter pears (`elem` map pear peers)
+    mapM (
+    modifyTVar
+
+mkShake :: Environment -> B.ByteString
+mkShake env = B.concat [ourHead, infoHash $ metaInfo env, pid $ ident env]
+
+mkURL :: Maybe Travent -> Maybe B.ByteString -> Environment -> STM String
+mkURL event trackid env = do
 
     peers' <- readTVar peers
     ups <- mapM (fmap up . readTVar . mut) peers'
@@ -45,7 +85,7 @@ mkURL Environment{..} CommSt{..} event = do
     have <- readTVar pieceMap
 
     return (announce torrent ++ "?" ++ intercalate "&"
-      ( catMaybes [ fmap (("trackerid=" ++) . urifyBS) trackerId
+      ( catMaybes [ fmap (("trackerid=" ++) . urifyBS) trackid
                   , fmap (("event="     ++) . show   ) event
                   ]
      ++ [ "numwant="    ++ show minPeers
@@ -60,6 +100,7 @@ mkURL Environment{..} CommSt{..} event = do
       ))
 
   where
+    Environment{..} = env
     Config{..} = config
     Ident{..} = ident
     MetaInfo{..} = metaInfo
