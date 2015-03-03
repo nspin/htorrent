@@ -1,5 +1,6 @@
 module Curry.Parsers.PWP
     ( Handshake(..)
+    , ourProtocol
     , Message(..)
     , getShake
     , getMsg
@@ -8,9 +9,9 @@ module Curry.Parsers.PWP
     ) where
 
 import           Control.Applicative
-import           Data.Bits
 import           Data.Attoparsec.ByteString
 import qualified Data.Attoparsec.ByteString.Char8 as P
+import           Data.Bits
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import           Data.List hiding (take)
@@ -26,8 +27,11 @@ import           Prelude hiding (take)
 data Handshake = Handshake
     { protocolHS :: String
     , infoHashHS :: B.ByteString
-    , peerIDHS   :: B.ByteString
+    , peerIdHS   :: B.ByteString
     }
+
+ourProtocol :: String
+ourProtocol = "BitTorrent protocol"
 
 data Message = Keepalive
              | Choke
@@ -75,13 +79,14 @@ parseMsg = do
 -- MAKERS
 ----------------------------------------
 
-mkShake :: B.ByteString -> B.ByteString -> B.ByteString
-mkShake myid infhash = B.concat [ B.singleton 19
-                                , C.pack "BitTorren protocol"
-                                , B.replicate 8 0
-                                , infhash
-                                , myid
-                                ]
+mkShake :: Handshake -> B.ByteString
+mkShake (Handshake pcol infhash myid) = B.concat
+    [ B.singleton (fromInteger $ genericLength pcol)
+    , C.pack pcol
+    , B.replicate 8 0
+    , infhash
+    , myid
+    ]
 
 
 mkMsg :: Message -> B.ByteString

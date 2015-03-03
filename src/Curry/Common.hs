@@ -1,23 +1,45 @@
+{-# LANGUAGE RecordWildCards, FlexibleInstances #-}
+
 module Curry.Common
-    ( ChuteIn
-    , ChuteOut
-    , newChute
-    , putChute
-    , takeChute
-    , MCtrl
-    , MView
-    , newMSplit
-    , modifyMCtrl
-    , readMView
-    , CountCtrl
-    , CountView
-    , newCount
-    , addCount
-    , readCount
+    ( eitherToMaybe
+    , (<%>)
+    --
+    -- , ChuteIn
+    -- , ChuteOut
+    -- , newChute
+    -- , putChute
+    -- , takeChute
+    -- , MCtrl
+    -- , MView
+    -- , newMSplit
+    -- , modifyMCtrl
+    -- , readMView
+    -- , CountCtrl
+    -- , CountView
+    -- , newCount
+    -- , addCount
+    -- , readCount
+    --
     ) where
 
+import Control.Applicative
 import Control.Concurrent.MVar
 import Control.Concurrent.STM
+import Control.Monad
+
+eitherToMaybe :: Either a b -> Maybe b
+eitherToMaybe (Right x) = Just x
+eitherToMaybe (Left  _) = Nothing
+
+infixl 1 <%>
+(<%>) :: Applicative f => f (a -> b) -> a -> f b
+(<%>) = (. pure) . (<*>)
+
+-- instance MonadPlus (Either String) where
+--     mzero = Left "mzero"
+--     mplus r@(Right _) _  = r
+--     mplus _ r@(Right _) = r
+--     mplus _ l@(Left  _) = l
 
 ----------------------------------------
 -- SIMPLE SAFELY WRAPPED CONCURRENT TYPES

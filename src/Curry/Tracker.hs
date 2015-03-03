@@ -1,6 +1,9 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Curry.Tracker where
+module Curry.Tracker
+    ( Travent(..)
+    , mkURL
+    ) where
 
 import           Curry.State
 import           Curry.Parsers.Bencode
@@ -72,35 +75,7 @@ urify8 byte = ['%', toHexHalf $ shiftR byte 4, toHexHalf $ byte .&. 15]
 toHexHalf :: Word8 -> Char
 toHexHalf = genericIndex "0123456789ABCDEF"
 
-
--- -- Our monad stack
--- type Communication a = ReaderT GlobalEnv (ReaderT CommEnv (StateT CommSt IO a))
-
--- track :: Communication ()
--- track = do
-
--- mkURL :: Travent -> Communication String
--- mkURL event = do
---     CommEnv MetaInfo{..} pieceMap <- ask
---     CommEnv{..} <- lift ask
---     CommSt{..} <- lift $ lift get
-
---     announce trackers ++ "?" ++ intercalate "&"
---       ( catMaybes [ fmap (("trackerid=" ++) . urifyBS) trackerId
---                   , fmap (("event="     ++) . show   ) event
---                   ]
---      ++ [ "peer_id="    ++ urifyBS pid
---         , "port="       ++ show port
---         -- , "numwant="    ++ show minPeers
---         , "key="        ++ urifyBS key
---         , "info_hash="  ++ urifyBS infoHash
---         , "uploaded="   ++ show uploaded
---         , "downloaded=" ++ show downloaded
---         , "left="       ++ show (size - downloaded)
---         ]
---       )
-
--- hearPeers :: GlobalEnv -> ChuteIn Peer -> (Socket, SockAddr) -> IO ()
+-- ---------------------------------------------------------------------
 
 -- beFriend :: GlobalEnv -> ChuteIn Peer -> (Socket, SockAddr) -> IO ()
 -- beFriend GlobalEnv{..} chute (sock, _) = do
@@ -135,49 +110,7 @@ toHexHalf = genericIndex "0123456789ABCDEF"
 --             go
 
 -- ---------------------------------------------------------------------
--- ---------------------------------------------------------------------
-
--- -- -- A tracker event
--- -- data Travent = Started | Stopped | Complete deriving Show
 
 -- -- -- Regularly gets updated info (and keepalives) from tracker,
 -- -- -- spawing new processes for each new peer reported and adding
 -- -- -- information about the processes to ST for the brain module.
-
--- -- -- TODO: renew and use this info (StateT (interval, trackerId, peersAddedSoFar))
--- -- -- data TompE = TompE
--- -- --     { interval  :: Int
--- -- --     , trackerId :: Maybe B.ByteString
--- -- --     , peerCan   :: Chan Peer
--- -- --     } deriving Show
-
--- -- askTrack :: Global -> AcidState Tacid -> Chan Peer -> IO ()
--- -- askTrack Global{..} acid peerCan = forever $ do
-
--- --     SP{..} <- query' acid AskSP
-
--- --     let url = announce (torrent $ metainfo) ++ "?" ++ intercalate "&"
--- --               ( maybeToList $ fmap (("trackerid=" ++) . urifyBS) trackerId
--- --              ++ [ "info_hash="  ++ urifyBS (info_hash metainfo)
--- --                 , "peer_id="    ++ urifyBS id
--- --                 , "port="       ++ show portM
--- --                 , "uploaded="   ++ show up
--- --                 , "downloaded=" ++ show downloaded
--- --                 , "left="       ++ show (total - downloaded)
--- --                 -- , "ip="         ++
--- --                 , "key="        ++ urifyBS key
--- --                 ]
--- --               )
--- --         downloaded = piece_length (info $ torrent metainfo) * M.size complete
--- --             + maybe 0 (sum . map ((\(x, y) -> y - x) . fst) . M.toList) incomplete
--- --         total = piece_length (info $ torrent metainfo) * length (pieces . info $ torrent metainfo)
-
--- --     resp <- W.get url
-
--- --     print resp
-
--- --     threadDelay interval
-
-
--- -- mkURL ::
-

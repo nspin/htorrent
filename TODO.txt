@@ -8,3 +8,4 @@ to minimize mutability, leave most computing to brain (it only gets 'reports'):
 friendships have only ups and chunks chan
 expand on 'reports'?
 
+ip type??

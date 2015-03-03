@@ -2,6 +2,7 @@
 
 module Curry.Parsers.Torrent where
 
+import           Curry.Common
 import           Curry.Parsers.Bencode
 
 import           Control.Monad
@@ -107,21 +108,3 @@ getInfo = getDict >=> \info -> do
         pieceLen
         pieces
         fileDesc
-
-----------------------------------------
--- AUX
-----------------------------------------
-
--- instance MonadPlus (Either String) where
---     mzero = Left "mzero"
---     mplus r@(Right _) _  = r
---     mplus _ r@(Right _) = r
---     mplus _ l@(Left  _) = l
-
-eitherToMaybe :: Either a b -> Maybe b
-eitherToMaybe (Right x) = Just x
-eitherToMaybe (Left  _) = Nothing
-
-infixl 1 <%>
-(<%>) :: Applicative f => f (a -> b) -> a -> f b
-(<%>) = (. pure) . (<*>)

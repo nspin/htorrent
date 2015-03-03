@@ -1,9 +1,11 @@
 module Curry.State where
 
 import           Curry.Common
+import           Curry.Parsers.THP
 import           Curry.Parsers.Torrent
 
 import           Control.Concurrent.STM
+import           Control.Monad
 import           Control.Monad.Reader
 import qualified Data.ByteString as B
 import qualified Data.Map as M
@@ -16,7 +18,7 @@ import           System.IO
 -- control more granular.
 ----------------------------------------
 
-type Curry = ReaderT Environment
+-- type Curry = ReaderT Environment
 
 ----------------------------------------
 -- COMMON TO THE ENTIRE INSANCE
@@ -51,9 +53,9 @@ data Chunk = Chunk
 
 -- Information about a specific peer.
 data Peer = Peer
-    { socket  :: Socket
-    , theirID :: B.ByteString -- out peer id (random)
-    , mut     :: TVar MutPeer
+    { socket :: Socket
+    , pear   :: Pear
+    , mut    :: TVar MutPeer
     } deriving Show
 
 -- What a specific peer thread has
@@ -80,4 +82,4 @@ data CommSt = CommSt
     { trackerId   :: Maybe B.ByteString -- our tracker id
     , interval    :: Integer -- from tracker
     , minIntervel :: Integer -- from tracker
-    }
+    } deriving Show
