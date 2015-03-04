@@ -7,25 +7,39 @@ import qualified Data.ByteString as B
 import           Network.Simple.TCP
 import           Network.Socket.ByteString
 
-ourHead :: B.ByteString
-ourHead = B.singleton 19 `B.append` ourProtocol
-
 ourProtocol :: B.ByteString
 ourProtocol = C.pack "BitTorrent protocol"
 
-meet :: Environment -> Socket -> IO ()
-meet env (sock, addr) = do
-    sent <- send sock $ ourBody `B.append` pearId (ident env)
-    when (sent == 68) $ do
-        theirBody <- recv sock 48
-        when (theirBody == ourBody) $ do
-            theirId <- recv sock 20
-            let theirIdent = unCurry Ident theirId theirAddr
-                update :: STM (Maybe (IO (), IO ()))
-                update = 
+ourHead :: B.ByteString
+ourHead = B.singleton 19 `B.append` ourProtocol
+
+ourBody = Environmnet -> B.ByteString
+ourBody env = ourHead `B.append` infoHash (metaInfo env)
+
+ourShake :: Environment -> B.ByteString
+ourShake env = ourBody env `append` ourId env
+
+pears <- atomically $ readTVar (peers environment)
+when (not $ theirAddr `elem` map addr pears) $ do
   where
-    ourBody = ourHead `B.append` infoHash (metaInfo env)
+    theirAddr :: Addr
     theirAddr = case addr of
-        SockAddrInet pnum haddr -> (pnum, haddr)
-        SockAddrInet6 pnum _ haddr6 _ -> (pnum, haddr6)
-        SockAddrUnix _ -> ("wat", "wat")
+        SockAddrInet pnum haddr -> Addr pnum haddr
+        SockAddrInet6 pnum _ haddr6 _ -> Addr pnum haddr6
+        SockAddrUnix _ -> Addr "wat" "wat"
+
+
+meet :: Environment -> Addr -> Socket -> IO ()
+meet env peer sock = do
+    sent <- send sock $ ourShake env
+    theirBody <- recv sock 48
+    recv sock 20
+    when (sent == 68 && theirBody == ourBody env) $ do
+        newPeer <- atomically $ Peer theirAddr <$> newTChan
+                                               <*> newTVar startMut
+                                               <*> newEmptyTMVar
+        forkIO $ do
+            msg <- readTChan $ out newPeer
+
+startStatus = Status M.empty True True False False
+startHist = Hist 0 0

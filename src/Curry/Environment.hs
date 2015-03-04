@@ -1,6 +1,7 @@
 module Curry.Environment where
 
 import           Curry.Common
+import           Curry.Parsers.PWP
 import           Curry.Parsers.THP
 import           Curry.Parsers.Torrent
 
@@ -26,7 +27,9 @@ import           System.IO
 
 data Environment = Environment
     { config    :: Config
-    , whoami    :: (Ident, B.ByteString) -- (ident, key)
+    , whoami    :: Addr
+    , ourId     :: B.ByteString
+    , ourKey    :: B.ByteString
     , metaInfo  :: MetaInfo
     , currPiece :: TVar (M.Map Chunk B.ByteString)
     , pieceMap  :: TVar (M.Map Integer (Maybe  Handle))
@@ -38,10 +41,9 @@ data Config = Config
     , maxPeers :: Integer
     } deriving Show
 
-data Ident = Ident
-    { pearId   :: B.ByteString
-    , pearIp   :: String
-    , pearPort :: Integer
+data Addr = Addr
+    { addrIp   :: String
+    , addrPort :: String
     } deriving (Eq, Show)
 
 -- Information about a part of a piece
@@ -53,17 +55,19 @@ data Chunk = Chunk
 
 -- Information about a specific peer.
 data Peer = Peer
-    { ident  :: Ident
-    , mut    :: TVar MutPeer
-    , toT    :: TChan Message
-    , fromT  :: TChan Message
+    { addr   :: Addr 
+    , out    :: TChan Message
+    , hist   :: TVar Hist
+    , status :: TMVar Status
     } deriving Show
 
--- What a specific peer thread has
-data MutPeer = MutPeer
+data Hist = Hist
+    { up   :: Integer
+    , down :: Integer
+    } deriving Show
+
+data Status = Status
     { has         :: (M.Map Integer Bool)
-    , up          :: Integer
-    , down        :: Integer
     , choked      :: Bool
     , choking     :: Bool
     , interesting :: Bool

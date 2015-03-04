@@ -73,8 +73,7 @@ update tvpeers pears = do
     mapM (
     modifyTVar
 
-mkShake :: Environment -> B.ByteString
-mkShake env = B.concat [ourHead, infoHash $ metaInfo env, pid $ ident env]
+madd :: TVar [Peer] -> (String, String) -> STM (IO ())
 
 mkURL :: Maybe Travent -> Maybe B.ByteString -> Environment -> STM String
 mkURL event trackid env = do
@@ -89,20 +88,19 @@ mkURL event trackid env = do
                   , fmap (("event="     ++) . show   ) event
                   ]
      ++ [ "numwant="    ++ show minPeers
-        , "port="       ++ show port
-        , "peer_id="    ++ urifyBS pid
-        , "key="        ++ urifyBS key
+        , "port="       ++ show (addrPort whoami)
+        , "peer_id="    ++ urifyBS myId
+        , "key="        ++ urifyBS myKey
         , "info_hash="  ++ urifyBS infoHash
-        , "uploaded="   ++ show ( sum ups)
-        , "downloaded=" ++ show ( sum downs)
-        , "left="       ++ show ( totalSize - toInteger (M.size have))
+        , "uploaded="   ++ show (sum ups)
+        , "downloaded=" ++ show (sum downs)
+        , "left="       ++ show (totalSize - toInteger (M.size have))
         ]
       ))
 
   where
     Environment{..} = env
     Config{..} = config
-    Ident{..} = ident
     MetaInfo{..} = metaInfo
     info' = info torrent
     totalSize = pieceLen info' * genericLength (pieces info')

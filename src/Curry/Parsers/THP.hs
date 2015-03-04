@@ -26,12 +26,6 @@ data THPresp = THPresp
     , yourId     :: Maybe B.ByteString
     } deriving Show
 
-data Mident = Mident
-    { pearIp   :: String
-    , pearPort :: Integer
-    , pearId   :: Maybe B.ByteString
-    } deriving (Eq, Show)
-
 getResp :: BValue -> Either String THPresp
 getResp = getDict >=> \dict -> case leekup "failure reason" dict of
     Right bval -> fmap C.unpack (getString bval) >>= Left

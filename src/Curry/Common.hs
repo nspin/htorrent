@@ -127,3 +127,6 @@ instance Show (MVar a) where
 
 instance Show (TVar a) where
     show _ = "(a tvar exists here)"
+
+instance Show (TChan a) where
+    show _ = "(a tchan exists here)"
