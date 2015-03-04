@@ -30,6 +30,13 @@ import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
 import           Control.Monad
 
+-- mapTMVar :: TMVar a -> (a -> a) -> STM ()
+
+-- doTMVar :: TMVar a -> (a -> STM ()) -> STM ()
+-- doTMVar mvar f = do
+--     x <- tryTakeTMVar mvar
+--     case 
+
 maybeToEither :: String -> Maybe a -> Either String a
 maybeToEither _ (Just x) = Right x
 maybeToEither s Nothing  = Left s

@@ -39,7 +39,6 @@ type Tracking = ReaderT Environment IO
 -- viewer :: (Environment -> CommSt -> IO a) -> Tracking a
 -- viewer f = ReaderT $ \env -> get >>= \comm -> lift (f env comm)
 
--- Why now state of a state monad? Because is does not change enough.
 data CommSt = CommSt
     { trackerIdST   :: Maybe B.ByteString -- our tracker id
     , intervalST    :: Integer -- from tracker
@@ -54,6 +53,7 @@ instance Show Travent where
     show Stopped  = "stopped"
     show Complete = "complete"
 
+-- Why now state of a state monad? Because is does not change enough.
 track :: CommSt -> Tracking ()
 track CommSt{..} = do
     url <- ReaderT $ atomically . mkURL Nothing trackerIdST
@@ -63,7 +63,7 @@ track CommSt{..} = do
     case rresp of
         Left issue -> liftIO $ putStrLn issue
         Right resp -> do
-            let check :: ReaderT Environment STM 
+            let check :: ReaderT Environment STM
             mapM (forkIO . meet) destinations
 
 update :: TVar [Peer] -> [Pear] -> STM [IO ()]

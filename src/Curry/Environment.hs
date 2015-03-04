@@ -54,11 +54,16 @@ data Chunk = Chunk
     } deriving (Show, Eq, Ord)
 
 -- Information about a specific peer.
+-- Perhaps mixing SMT and a normal MVar is
+-- bad, but after as much thought as I'm
+-- willing to give, I couldn't thing of an
+-- actual reason.
 data Peer = Peer
-    { addr   :: Addr 
-    , out    :: TChan Message
-    , hist   :: TVar Hist
-    , status :: TMVar Status
+    { addr    :: Addr
+    , hist    :: TVar Hist
+    , inChan  :: Chan Message
+    , outChan :: Chan Message
+    , status  :: MVar Status
     } deriving Show
 
 data Hist = Hist
