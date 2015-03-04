@@ -101,7 +101,7 @@ getInfo = getDict >=> \info -> do
                        )
                 )
 
-    fileDesc <- mplus one many
+    fileDesc <- one <+> many
 
     return $ Info
         (maybe False (== 1) (eitherToMaybe $ leekup "private" info >>= getInt))

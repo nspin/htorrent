@@ -1,6 +1,5 @@
 module Curry.Parsers.THP
     ( THPresp(..)
-    , Pear(..)
     , getResp
     ) where
 
@@ -18,7 +17,7 @@ import           Control.Applicative
 import           Control.Monad
 
 data THPresp = THPresp
-    { pears      :: [Pear]
+    { pears      :: [(String, String)] -- ip, port
     , complete   :: Integer
     , incomplete :: Integer
     , interval   :: Integer
@@ -27,14 +26,11 @@ data THPresp = THPresp
     , yourId     :: Maybe B.ByteString
     } deriving Show
 
-data Pear = Pear
+data Mident = Mident
     { pearIp   :: String
     , pearPort :: Integer
     , pearId   :: Maybe B.ByteString
-    } deriving Show
-
-instance Eq Pear where
-    x == y = pearIp x == pearIp y && pearPort x == pearPort y
+    } deriving (Eq, Show)
 
 getResp :: BValue -> Either String THPresp
 getResp = getDict >=> \dict -> case leekup "failure reason" dict of
@@ -49,14 +45,13 @@ getResp = getDict >=> \dict -> case leekup "failure reason" dict of
            <%> C.unpack <$> eitherToMaybe (leekup "warning" dict >>= getString)
            <%> eitherToMaybe (leekup "tracker id" dict >>= getString)
 
-uncompressedPeers :: BValue -> Either String [Pear]
+uncompressedPeers :: BValue -> Either String [(String, String)]
 uncompressedPeers = getList >=> mapM (getDict >=> \dict ->
-    Pear <$> fmap C.unpack (leekup "ip" dict >>= getString)
-         <*> (leekup "port" dict >>= getInt)
-         <%> eitherToMaybe (leekup "peer id" dict >>= getString))
+    (,) <$> fmap C.unpack (leekup "ip" dict >>= getString)
+        <*> fmap show (leekup "port" dict >>= getInt))
 
-compressedPeers :: BValue -> Either String [Pear]
+compressedPeers :: BValue -> Either String [(String, String)]
 compressedPeers = fmap (map aux . chunksOf 6 . B.unpack) . getString
-  where aux [a, b, c, d, e, f] = Pear (intercalate "." $ map show [a, b, c, d])
-                                      (fromIntegral e * 256 + fromIntegral f)
-                                      Nothing
+  where
+    aux [a, b, c, d, e, f] =
+        (intercalate "." $ map show [a, b, c, d], show $ fromIntegral e * 256 + fromIntegral f)

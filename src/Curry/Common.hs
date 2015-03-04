@@ -2,6 +2,7 @@
 
 module Curry.Common
     ( eitherToMaybe
+    , maybeToEither
     , (<%>)
     , (<+>)
     --
@@ -23,10 +24,15 @@ module Curry.Common
     --
     ) where
 
-import Control.Applicative
-import Control.Concurrent.MVar
-import Control.Concurrent.STM
-import Control.Monad
+import qualified Data.ByteString as B
+import           Control.Applicative
+import           Control.Concurrent.MVar
+import           Control.Concurrent.STM
+import           Control.Monad
+
+maybeToEither :: String -> Maybe a -> Either String a
+maybeToEither _ (Just x) = Right x
+maybeToEither s Nothing  = Left s
 
 eitherToMaybe :: Either a b -> Maybe b
 eitherToMaybe (Right x) = Just x

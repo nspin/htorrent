@@ -26,7 +26,7 @@ import           System.IO
 
 data Environment = Environment
     { config    :: Config
-    , ident     :: Ident
+    , whoami    :: (Ident, B.ByteString) -- (ident, key)
     , metaInfo  :: MetaInfo
     , currPiece :: TVar (M.Map Chunk B.ByteString)
     , pieceMap  :: TVar (M.Map Integer (Maybe  Handle))
@@ -39,10 +39,10 @@ data Config = Config
     } deriving Show
 
 data Ident = Ident
-    { port :: Integer -- port listening on
-    , pid  :: B.ByteString -- out peer id (random)
-    , key  :: B.ByteString -- our key (random)
-    } deriving Show
+    { pearId   :: B.ByteString
+    , pearIp   :: String
+    , pearPort :: Integer
+    } deriving (Eq, Show)
 
 -- Information about a part of a piece
 data Chunk = Chunk
@@ -53,21 +53,18 @@ data Chunk = Chunk
 
 -- Information about a specific peer.
 data Peer = Peer
-    { socket :: Socket
-    , pear   :: Pear
+    { ident  :: Ident
     , mut    :: TVar MutPeer
+    , toT    :: TChan Message
+    , fromT  :: TChan Message
     } deriving Show
 
 -- What a specific peer thread has
 data MutPeer = MutPeer
-    { status :: Status
-    , has    :: (M.Map Integer Bool)
-    , up     :: Integer
-    , down   :: Integer
-    } deriving Show
-
-data Status = Status
-    { choked      :: Bool
+    { has         :: (M.Map Integer Bool)
+    , up          :: Integer
+    , down        :: Integer
+    , choked      :: Bool
     , choking     :: Bool
     , interesting :: Bool
     , interested  :: Bool

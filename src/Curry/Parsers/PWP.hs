@@ -1,6 +1,5 @@
 module Curry.Parsers.PWP
-    ( ourHead
-    , Message(..)
+    ( Message(..)
     , getBigEnd
     , getMsg
     , mkBigEnd
@@ -22,9 +21,6 @@ import           Prelude hiding (take)
 ----------------------------------------
 -- TYPES
 ----------------------------------------
-
-ourHead :: B.ByteString
-ourHead = B.singleton 19 `B.append` C.pack "BitTorrent protocol"
 
 data Message = Keepalive
              | Choke
