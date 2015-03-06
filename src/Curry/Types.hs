@@ -1,4 +1,4 @@
-module Curry.Environment where
+module Curry.Types where
 
 import           Curry.Common
 import           Curry.Parsers.PWP

@@ -1,9 +1,11 @@
 module Curry.Parsers.PWP
-    ( Message(..)
+    ( Context
+    , Message(..)
     , getBigEnd
     , getMsg
     , mkBigEnd
     , mkMsg
+    , filterMsg
     ) where
 
 import           Control.Applicative
@@ -21,6 +23,15 @@ import           Prelude hiding (take)
 ----------------------------------------
 -- TYPES
 ----------------------------------------
+
+data Context = Context
+    { bep001 :: Bool
+    , bep002 :: Bool
+    , bep003 :: Bool
+    , bep004 :: Bool
+    , bep005 :: Bool
+    , bep006 :: Bool
+    } deriving Show
 
 data Message = Keepalive
              | Choke
@@ -80,6 +91,27 @@ mkMsg (Bitfield x    ) = 5 `B.cons` bitField x
 mkMsg (Request  x y z) = 6 `B.cons` (B.concat . map mkBigEnd) [x, y, z]
 mkMsg (Piece    x y z) = 7 `B.cons` B.concat [mkBigEnd x, mkBigEnd y, z]
 mkMsg (Cancel   x y z) = 8 `B.cons` (B.concat . map mkBigEnd) [x, y, z]
+
+----------------------------------------
+-- FILTER
+----------------------------------------
+
+filterMsg :: Conext -> Message -> Either String Message
+filterMsg conext msg = case msg of
+    Keepalive     -> yup
+    Choke         -> yup
+    Unchoke       -> yup
+    Interested    -> yup
+    Bored         -> yup
+    Have _        -> yup
+    Bitfield _    -> yup
+    Request _ _ _ -> yup
+    Piece _ _ _   -> yup
+    Cancel _ _ _  -> yup
+  where
+    yup = Right msg
+    nope True = const $ Right msg
+    nope False = Left
 
 ----------------------------------------
 -- HELPERS
