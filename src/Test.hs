@@ -1,7 +1,9 @@
 module Test where
 
+import           Curry.Common
 import           Curry.Tracker
-import           Curry.Environment
+import           Curry.Types
+import           Curry.Peer
 import           Curry.Parsers.Bencode
 import           Curry.Parsers.PWP
 import           Curry.Parsers.THP
@@ -11,6 +13,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
+import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Lens
 import           Control.Monad.Reader
@@ -24,31 +27,39 @@ test name = do
 
     file <- B.readFile name
     a <- newTVarIO M.empty
-    b <- newTVarIO M.empty
-    c <- newTVarIO []
+    b <- newTVarIO []
 
     let Right meta = getMeta file
-        env = Environment
-                (Config 30 55)
-                (Ident 6881 (C.pack "thisisjustalittltest") (C.pack "thisismytestkeyaight"))
+        env = Env
+                (Config 30 55 emptyCtxt)
+                (Addr undefined $ show 6881)
+                (C.pack "testidtestidtestidte")
+                (C.pack "testkeytestkeytestke")
                 meta
                 a
                 b
-                c
 
-    url <- evalStateT (runReaderT (mkURL Nothing) env) (CommSt Nothing 0 0)
-    resp <- W.get url
+    url <- atomically $ mkURL env Nothing Nothing
+    resp <- fmap (L.toStrict . (^. W.responseBody))
+                 (W.get url)
+                  >>= extract (getBValue >=> getResp)
 
-    let Right thing = do
-            let bytes = L.toStrict $ resp ^. W.responseBody
-            rsp <- getBValue bytes >>= getResp
-            return $ head (pears rsp)
-        hs = B.concat [ourHead, B.pack $ replicate 8 0, infoHash meta, C.pack "thisisjustalittltest"]
+    print resp
 
-    connect (pearIp thing) (show $ pearPort thing) $ \(s, _) -> do
-        print "CONNECTED"
-        send s hs
-        print "SENT"
-        print hs
-        them <- recv s 128
-        print them
+    peerBatch env $ pears resp
+
+    forever $ threadDelay maxBound
+        -- hs = B.concat [ B.singleton 19
+        --               , C.pack "BitTorrent protocol"
+        --               , B.pack $ replicate 8 0
+        --               , infoHash meta
+        --               , C.pack "thisisjustalittltest"
+        --               ]
+
+    -- connect ip port $ \(s, _) -> do
+        -- print "CONNECTED"
+        -- send s hs
+        -- print "SENT"
+        -- print hs
+        -- them <- recv s 128
+        -- print them

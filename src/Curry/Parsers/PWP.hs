@@ -7,6 +7,7 @@ module Curry.Parsers.PWP
     , mkBigEnd
     , mkMsg
     , mkCtxt
+    , emptyCtxt
     , filterMsg
     , merge
     ) where
@@ -57,7 +58,7 @@ getBigEnd :: B.ByteString -> Either String Integer
 getBigEnd = eitherResult . parse bigEnd
 
 getMsg :: B.ByteString -> Either String Message
-getMsg = eitherResult . parse parseMsg
+getMsg = eitherResult . (`feed` B.empty) . parse parseMsg
 
 parseMsg = endOfInput *> return Keepalive <|> do
     msgID <- anyWord8
@@ -67,12 +68,13 @@ parseMsg = endOfInput *> return Keepalive <|> do
         2 -> return Interested
         3 -> return Bored
         4 -> Have <$> bigEnd
-        5 -> Bitfield <$> fmap unBitField takeByteString
+        5 -> (Bitfield . unBitField) <$> takeByteString
         6 -> liftA3 Request bigEnd bigEnd bigEnd
         7 -> liftA3 Piece bigEnd bigEnd takeByteString
         8 -> liftA3 Cancel bigEnd bigEnd bigEnd
 
-getCtxt = Context False False False False False False
+getCtxt :: B.ByteString -> Either String Context
+getCtxt _ = Right $ Context False False False False False False
 
 ----------------------------------------
 -- MAKERS
@@ -82,8 +84,8 @@ getCtxt = Context False False False False False False
 -- Oversized ints are not handled.
 mkBigEnd :: Integer -> B.ByteString
 mkBigEnd int = B.pack [ fromIntegral $ 255 .&. shiftR int part
-                   | part <- [24, 16, 8, 0]
-                   ]
+                      | part <- [24, 16, 8, 0]
+                      ]
 
 mkMsg :: Message -> B.ByteString
 mkMsg (Keepalive     ) = B.empty
@@ -100,7 +102,7 @@ mkMsg (Cancel   x y z) = 8 `B.cons` (B.concat . map mkBigEnd) [x, y, z]
 mkCtxt = const . B.pack $ replicate 8 0
 
 ----------------------------------------
--- FILTER
+-- UTILS
 ----------------------------------------
 
 filterMsg :: Context -> Message -> Either String Message
@@ -123,11 +125,14 @@ filterMsg conext msg = case msg of
 merge :: Context -> Context -> Context
 merge _ = id
 
+emptyCtxt :: Context
+emptyCtxt = Context False False False False False False
+
 ----------------------------------------
 -- HELPERS
 ----------------------------------------
 
--- parse a 4-bit big-endian integer
+-- parse a 4-byte big-endian integer
 bigEnd = (sum . zipWith (*) (iterate (* 256) 1) . map fromIntegral . reverse . B.unpack) <$> take 4
 
 bitField :: M.Map Integer Bool -> B.ByteString
@@ -137,7 +142,7 @@ unBitField :: B.ByteString -> M.Map Integer Bool
 unBitField bits = M.fromList . zip [0..] . concatMap bitList $ B.unpack bits
 
 bitList :: Word8 -> [Bool]
-bitList w = map (testBit w) [0..7]
+bitList w = map (testBit w) [7,6..0] -- right?
 
 unBitList :: [Bool] -> [Word8]
 unBitList = map ( foldl (.|.) 0

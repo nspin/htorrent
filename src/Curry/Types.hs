@@ -1,4 +1,14 @@
-module Curry.Types where
+module Curry.Types
+    ( Env(..)
+    , Config(..)
+    , Peer(..)
+    , Hist(..)
+    , Status(..)
+    , PieceNode(..)
+    , Progress(..)
+    , Chunk(..)
+    , simplify
+    ) where
 
 import           Curry.Common
 import           Curry.Parsers.PWP
@@ -12,28 +22,21 @@ import           Control.Monad
 import           Control.Monad.Reader
 import qualified Data.ByteString as B
 import qualified Data.Map as M
+import           Data.UnixTime
 import           Network.Socket
 
 ----------------------------------------
--- OUR MONAD STACK (likely to change as
--- I decide to make concurrency
--- control more granular.)
-----------------------------------------
-
--- type Curry = ReaderT Environment
-
-----------------------------------------
--- COMMON TO THE ENTIRE INSANCE
+-- IMPORTANT ENVIRONMENT/STATE TYPES
 ----------------------------------------
 
 data Env = Env
-    { config   :: Config
-    , whoami   :: Addr
-    , ourId    :: B.ByteString
-    , ourKey   :: B.ByteString
-    , metaInfo :: MetaInfo
-    , pieces   :: TVar (M.Map Integer Piece)
-    , peers    :: TVar [Peer]
+    { config    :: Config
+    , whoami    :: Addr
+    , ourId     :: B.ByteString
+    , ourKey    :: B.ByteString
+    , metaInfo  :: MetaInfo
+    , ourPieces :: TVar (M.Map Integer PieceNode)
+    , peers     :: TVar [Peer]
     } deriving Show
 
 data Config = Config
@@ -42,8 +45,6 @@ data Config = Config
     , myCtxt   :: Context
     } deriving Show
 
-data Addr = Addr String String deriving Show
-
 ---------------------------------
 
 -- Information about a specific peer.
@@ -51,7 +52,7 @@ data Peer = Peer
     { addr    :: Addr
     , hist    :: TVar Hist
     , status  :: TMVar Status
-    , mailbox :: Chan Message
+    , mailbox :: TChan Message
     } deriving Show
 
 data Hist = Hist
@@ -65,12 +66,13 @@ data Status = Status
     , choking     :: Bool
     , interesting :: Bool
     , interested  :: Bool
+    , lastMsg     :: UnixTime
     , context     :: Context
     } deriving Show
 
 ---------------------------------------------
 
-data Piece = Piece
+data PieceNode = PieceNode
     { md5sum   :: Maybe B.ByteString
     , sha1     :: B.ByteString
     , progress :: Progress
@@ -78,7 +80,7 @@ data Piece = Piece
     , give     :: Chan (Integer, Integer, B.ByteString, Integer -> IO (), IO ())
     } deriving Show
 
-data Progress = None | Some | All
+data Progress = None | Some | All deriving Show
 
 -- Information about a part of a piece
 data Chunk = Chunk
@@ -86,3 +88,14 @@ data Chunk = Chunk
     , start :: Integer
     , end   :: Integer
     } deriving (Show, Eq, Ord)
+
+----------------------------------------
+-- UTILS
+----------------------------------------
+
+simplify :: M.Map Integer PieceNode -> M.Map Integer Bool
+simplify = M.map (done . progress)
+
+done :: Progress -> Bool
+done All = True
+done _ = False

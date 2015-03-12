@@ -17,7 +17,7 @@ import           Control.Applicative
 import           Control.Monad
 
 data THPresp = THPresp
-    { pears      :: [(String, String)] -- ip, port
+    { pears      :: [Addr]
     , complete   :: Integer
     , incomplete :: Integer
     , interval   :: Integer
@@ -30,8 +30,9 @@ getResp :: BValue -> Either String THPresp
 getResp = getDict >=> \dict -> case leekup "failure reason" dict of
     Right bval -> fmap C.unpack (getString bval) >>= Left
     Left _ -> THPresp
-           <$> (do prs <- leekup "peers" dict
-                   uncompressedPeers prs <+> compressedPeers prs)
+           <$> fmap (map $ uncurry Addr)
+                    (do prs <- leekup "peers" dict
+                        uncompressedPeers prs <+> compressedPeers prs)
            <*> (leekup "complete" dict >>= getInt)
            <*> (leekup "incomplete" dict >>= getInt)
            <*> (leekup "interval" dict >>= getInt)
