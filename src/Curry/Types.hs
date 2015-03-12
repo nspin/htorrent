@@ -52,7 +52,8 @@ data Peer = Peer
     { addr    :: Addr
     , hist    :: TVar Hist
     , status  :: TMVar Status
-    , mailbox :: TChan Message
+    , to      :: TChan Message
+    , from    :: TChan Message
     } deriving Show
 
 data Hist = Hist

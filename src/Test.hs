@@ -13,9 +13,10 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
+import           Data.Maybe
 import           Control.Concurrent
 import           Control.Concurrent.STM
-import           Control.Lens
+import           Control.Lens hiding (Context)
 import           Control.Monad.Reader
 import           Control.Monad.Trans.State.Lazy
 import           Network.Simple.TCP
@@ -31,7 +32,7 @@ test name = do
 
     let Right meta = getMeta file
         env = Env
-                (Config 30 55 emptyCtxt)
+                (Config 30 55 Context)
                 (Addr undefined $ show 6881)
                 (C.pack "testidtestidtestidte")
                 (C.pack "testkeytestkeytestke")
@@ -46,7 +47,9 @@ test name = do
 
     print resp
 
-    peerBatch env $ pears resp
+    added <- atomically $ mapM (maybeAdd env) $ pears resp
+
+    mapM_ (forkIO . meet env) $ catMaybes added
 
     forever $ threadDelay maxBound
         -- hs = B.concat [ B.singleton 19

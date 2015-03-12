@@ -1,23 +1,29 @@
+{-# LANGUAGE RecordWildCards, FlexibleInstances #-}
+
 module Curry.Parsers.PWP
-    ( Message(..)
-    , Context
-    , getBigEnd
-    , getMsg
-    , getCtxt
-    , mkBigEnd
+    ( Handshake(..)
+    , Message(..)
+    , Context(..)
+    , parseShake
+    , parseInt
+    , parseMsg
+    , mkShake
+    , mkInt
     , mkMsg
-    , mkCtxt
-    , emptyCtxt
-    , filterMsg
+    , checkMsg
     , merge
     ) where
 
+import           Curry.Common
+
 import           Control.Applicative
 import           Data.Attoparsec.ByteString
-import qualified Data.Attoparsec.ByteString.Char8 as P
+import           Data.Attoparsec.ByteString.Char8 (anyChar)
+import qualified Data.Attoparsec.ByteString.Lazy as AL
 import           Data.Bits
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
+import qualified Data.ByteString.Lazy as L
 import           Data.List hiding (take)
 import           Data.List.Split
 import qualified Data.Map as M
@@ -27,6 +33,23 @@ import           Prelude hiding (take)
 ----------------------------------------
 -- TYPES
 ----------------------------------------
+
+data Handshake = Handshake
+    { protocol :: String
+    , someCtxt :: Context
+    , someId   :: B.ByteString
+    , someHash :: B.ByteString
+    } deriving Show
+
+instance Eq Handshake where
+    a == b = protocol a == protocol b && someHash a == someHash b
+
+-- Not currenty implemented
+data Context = Context deriving Show
+    -- { dht :: Bool
+    -- , utp :: Bool
+    -- , etc.
+    -- }
 
 data Message = Keepalive
              | Choke
@@ -40,25 +63,20 @@ data Message = Keepalive
              | Cancel Integer Integer Integer
              deriving Show
 
-data Context = Context
-    { bep001 :: Bool
-    , bep002 :: Bool
-    , bep003 :: Bool
-    , bep004 :: Bool
-    , bep005 :: Bool
-    , bep006 :: Bool
-    } deriving Show
-
 ----------------------------------------
--- GETTERS
+-- PARSERS
 ----------------------------------------
 
--- Parse a big-endian 4-bit integer
-getBigEnd :: B.ByteString -> Either String Integer
-getBigEnd = eitherResult . parse bigEnd
+parseShake = Handshake <$> (anyWord8 >>= ((`count` anyChar) . fromIntegral))
+                       <*> fmap ctxt (take 8)
+                       <*> take 20
+                       <*> take 20
 
-getMsg :: B.ByteString -> Either String Message
-getMsg = eitherResult . (`feed` B.empty) . parse parseMsg
+ctxt :: B.ByteString -> Context
+ctxt _ = Context
+
+-- parse a 4-byte big-endian integer
+parseInt = (sum . zipWith (*) (iterate (* 256) 1) . map fromIntegral . reverse . B.unpack) <$> take 4
 
 parseMsg = endOfInput *> return Keepalive <|> do
     msgID <- anyWord8
@@ -67,23 +85,27 @@ parseMsg = endOfInput *> return Keepalive <|> do
         1 -> return Unchoke
         2 -> return Interested
         3 -> return Bored
-        4 -> Have <$> bigEnd
+        4 -> Have <$> parseInt
         5 -> (Bitfield . unBitField) <$> takeByteString
-        6 -> liftA3 Request bigEnd bigEnd bigEnd
-        7 -> liftA3 Piece bigEnd bigEnd takeByteString
-        8 -> liftA3 Cancel bigEnd bigEnd bigEnd
-
-getCtxt :: B.ByteString -> Either String Context
-getCtxt _ = Right $ Context False False False False False False
+        6 -> liftA3 Request parseInt parseInt parseInt
+        7 -> liftA3 Piece parseInt parseInt takeByteString
+        8 -> liftA3 Cancel parseInt parseInt parseInt
 
 ----------------------------------------
 -- MAKERS
 ----------------------------------------
 
+mkShake :: Handshake -> B.ByteString
+mkShake Handshake{..} = B.singleton 19 `B.append` C.pack protocol
+                                       `B.append` context'
+                                       `B.append` someId
+                                       `B.append` someHash
+  where context' = B.pack $ replicate 8 0
+
 -- Turn an integer into a big-endian 4-bit bytestring.
 -- Oversized ints are not handled.
-mkBigEnd :: Integer -> B.ByteString
-mkBigEnd int = B.pack [ fromIntegral $ 255 .&. shiftR int part
+mkInt :: Integer -> B.ByteString
+mkInt int = B.pack [ fromIntegral $ 255 .&. shiftR int part
                       | part <- [24, 16, 8, 0]
                       ]
 
@@ -93,47 +115,25 @@ mkMsg (Choke         ) = B.singleton 0
 mkMsg (Unchoke       ) = B.singleton 1
 mkMsg (Interested    ) = B.singleton 2
 mkMsg (Bored         ) = B.singleton 3
-mkMsg (Have     x    ) = 4 `B.cons` mkBigEnd x
+mkMsg (Have     x    ) = 4 `B.cons` mkInt x
 mkMsg (Bitfield x    ) = 5 `B.cons` bitField x
-mkMsg (Request  x y z) = 6 `B.cons` (B.concat . map mkBigEnd) [x, y, z]
-mkMsg (Piece    x y z) = 7 `B.cons` B.concat [mkBigEnd x, mkBigEnd y, z]
-mkMsg (Cancel   x y z) = 8 `B.cons` (B.concat . map mkBigEnd) [x, y, z]
-
-mkCtxt = const . B.pack $ replicate 8 0
+mkMsg (Request  x y z) = 6 `B.cons` (B.concat . map mkInt) [x, y, z]
+mkMsg (Piece    x y z) = 7 `B.cons` B.concat [mkInt x, mkInt y, z]
+mkMsg (Cancel   x y z) = 8 `B.cons` (B.concat . map mkInt) [x, y, z]
 
 ----------------------------------------
--- UTILS
+-- UTILS (will grow with Context)
 ----------------------------------------
 
-filterMsg :: Context -> Message -> Either String Message
-filterMsg conext msg = case msg of
-    Keepalive     -> yup
-    Choke         -> yup
-    Unchoke       -> yup
-    Interested    -> yup
-    Bored         -> yup
-    Have _        -> yup
-    Bitfield _    -> yup
-    Request _ _ _ -> yup
-    Piece _ _ _   -> yup
-    Cancel _ _ _  -> yup
-  where
-    yup = Right msg
-    nope True = const $ Right msg
-    nope False = Left
+checkMsg :: Context -> Message -> Either String Message
+checkMsg _ msg = Right msg
 
 merge :: Context -> Context -> Context
 merge _ = id
 
-emptyCtxt :: Context
-emptyCtxt = Context False False False False False False
-
 ----------------------------------------
 -- HELPERS
 ----------------------------------------
-
--- parse a 4-byte big-endian integer
-bigEnd = (sum . zipWith (*) (iterate (* 256) 1) . map fromIntegral . reverse . B.unpack) <$> take 4
 
 bitField :: M.Map Integer Bool -> B.ByteString
 bitField = B.pack . unBitList . map snd . M.toList

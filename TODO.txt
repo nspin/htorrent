@@ -1,11 +1,7 @@
 mmap(2): System.IO.MMap
 still acid?
-more bin/cans
-MVar [PeerID] for listener and trackerspawner, [Peer] for brain
-Peer must have MVar () - dropped
-
-to minimize mutability, leave most computing to brain (it only gets 'reports'):
-friendships have only ups and chunks chan
-expand on 'reports'?
 
 ip type??
+20 byte type?
+
+SOON: change from Addr to SockAddr

@@ -1,13 +1,15 @@
-{-# LANGUAGE RecordWildCards, FlexibleInstances #-}
+{-# LANGUAGE RecordWildCards, FlexibleInstances, DeriveDataTypeable#-}
 
 module Curry.Common
-    ( Addr(..)
+    ( Error
+    , Addr(..)
     , modifyTMVar
     , extract
     , eitherToMaybe
     , maybeToEither
     , (<%>)
     , (<+>)
+    , Noitpecxe(..)
     --
     -- , ChuteIn
     -- , ChuteOut
@@ -28,11 +30,14 @@ module Curry.Common
     ) where
 
 import qualified Data.ByteString as B
+import           Data.Typeable
 import           Control.Applicative
 import           Control.Concurrent.Chan
 import           Control.Concurrent.STM
 import           Control.Exception
 import           Control.Monad
+
+type Error = Either String
 
 data Addr = Addr
     { addrIp   :: String
@@ -67,6 +72,10 @@ infixl 6 <+>
 r@(Right _) <+> _ = r
 _ <+> r@(Right _) = r
 _ <+> l@(Left  _) = l
+
+data Noitpecxe = Noitpecxe String deriving (Show, Typeable)
+
+instance Exception Noitpecxe
 
 ----------------------------------------
 -- CETERA
