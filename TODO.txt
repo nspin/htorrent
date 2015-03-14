@@ -7,9 +7,13 @@ change from Addr to SockAddr?
 
 ---------------
 
+concurrentlyAll :: [IO a] -> IO [a]
+concurrentlyAll :: [IO a] -> IO ()
+
 concurrentlyAll = runConcurrently . foldr (<*>) (pure []) . map (Concurrently . (:))
 concurrentlyAll_ = void . concurrentlyAll
 
 OR
 
+concurrentlyAll = mapConcurrently (>>= id)
 concurrentlyAll_ = foldr (*>) (pure ()) . map Concurrently
