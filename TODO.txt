@@ -17,3 +17,10 @@ OR
 
 concurrentlyAll = mapConcurrently (>>= id)
 concurrentlyAll_ = foldr (*>) (pure ()) . map Concurrently
+
+OR
+
+(best) --> concurrentlyAll = traverse Concurrently
+
+FINAL:
+  concurrently_ = void . traverse Concurrently
