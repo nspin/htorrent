@@ -4,3 +4,12 @@ still acid?
 ip type??
 20 byte type?
 change from Addr to SockAddr?
+
+---------------
+
+concurrentlyAll = runConcurrently . foldr (<*>) (pure []) . map (Concurrently . (:))
+concurrentlyAll_ = void . concurrentlyAll
+
+OR
+
+concurrentlyAll_ = foldr (*>) (pure ()) . map Concurrently
