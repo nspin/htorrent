@@ -24,3 +24,10 @@ OR
 
 FINAL:
   concurrently_ = void . traverse Concurrently
+
+------------------------------------------
+note to self:
+  <*> = = (. (>>=)) . (>>=) = (. (>>=)) (. (>>=))
+  x <*> y = join $ fmap (`fmap` y) x
+  x <*> = join . (flip fmap x) . flip fmap
+  <*> = (join .) . (. flip fmap) . flip fmap
