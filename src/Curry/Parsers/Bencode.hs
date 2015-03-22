@@ -1,25 +1,27 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Curry.Parsers.Bencode
     ( BValue(..)
-    , getBValue
-    , getString
-    , getInt
-    , getList
-    , getDict
-    , hashify
-    , leekup
+    , BDict
+    , _BString
+    , _BInt
+    , _BList
+    , _BDict
+    , parseBValue
+    , parseBDict
+    , parseHash
+    , writeBValue
     ) where
 
 import           Control.Applicative
-import           Control.Monad
-import           Crypto.Hash.SHA1
-import           Data.List
-import           Data.Attoparsec.ByteString.Char8 as P
+import           Control.Lens
+import           Data.Digest.SHA1
+import           Data.List hiding (take)
+import           Data.Attoparsec.ByteString
+import           Data.Attoparsec.ByteString.Char8 (char, decimal, signed)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-import           Data.Data
-import           Data.Typeable
+import           Prelude hiding (take)
 
 -- A bencoded value.
 -- Note that bdict keys are strings, not bytestrings (or, if you prefer,
@@ -31,75 +33,64 @@ import           Data.Typeable
 data BValue = BString B.ByteString
             | BInt Integer
             | BList [BValue]
-            | BDict [(String, BValue)]
-            deriving (Eq, Show, Data, Typeable)
+            | BDict BDict
+            deriving Show
+
+type BDict = [(String, BValue)]
 
 ----------------------------------------
 -- PARSERS
 ----------------------------------------
 
 -- Parses a bencoded value
-parseBVal :: Parser BValue
-parseBVal =  BString <$> parseString
-         <|> BInt    <$> parseMid 'i' decimal -- make signed?
-         <|> BList   <$> parseMid 'l' (many1 parseBVal)
-         <|> BDict   <$> parseDict parseBVal
+parseBValue :: Parser BValue
+parseBValue =  BString <$> parseString
+           <|> BInt    <$> parseMid 'i' (signed decimal)
+           <|> BList   <$> parseMid 'l' (many1 parseBValue)
+           <|> BDict   <$> parseBDict
+
+parseBDict :: Parser BDict
+parseBDict = parseADict parseBValue
 
 -- Parses a bencoded string
 parseString :: Parser B.ByteString
-parseString = decimal <* char ':' >>= P.take
+parseString = decimal <* char ':' >>= take
 
 -- Parse a list of (key,value)'s according to a parser for values
 -- (generalized because used both in parseBVal and rawDict)
-parseDict :: Parser a -> Parser [(String, a)]
-parseDict = parseMid 'd' . many1 . liftA2 (,) (C.unpack <$> parseString)
+parseADict :: Parser a -> Parser [(String, a)]
+parseADict = parseMid 'd' . many1 . liftA2 (,) (C.unpack <$> parseString)
 
 -- Parses the between start and 'e'
 parseMid :: Char -> Parser a -> Parser a
 parseMid start middle = char start *> middle <* char 'e'
 
 -- Extract raw bytestring of info key (if it exists), and calculate infohash
--- Note that >=>'s presidence is lower than that of >>=
-hashify :: B.ByteString -> Either String B.ByteString
-hashify = fmap hash . (eitherResult . parse rawDict >=> leekup "info")
-
--- Parses a bencoded dictionary, leaving values as raw bytestrings
-rawDict :: Parser [(String, B.ByteString)]
-rawDict = parseDict $ fst <$> match parseBVal
-
-----------------------------------------
--- PARSING-GETTER-THINGS (a -> Either String b)
-----------------------------------------
-
--- Type signature says all.
-
-getBValue :: B.ByteString -> Either String BValue
-getBValue = eitherResult . parse parseBVal
-
--- Four getters for extracting info from bvals, one for each constructor
--- (the least interesting part of this module)
-
-getString :: BValue -> Either String B.ByteString
-getString (BString v) = Right v
-getString b = Left ("The following BValue is not a BString:\n" ++ show b)
-
-getInt :: BValue -> Either String Integer
-getInt (BInt v) = Right v
-getInt b = Left ("The following BValue is not an BInt:\n" ++ show b)
-
-getList :: BValue -> Either String [BValue]
-getList (BList v) = Right v
-getList b = Left ("The following BValue is not a BList:\n" ++ show b)
-
-getDict :: BValue -> Either String [(String, BValue)]
-getDict (BDict v) = Right v
-getDict b = Left ("The following BValue is not a BDict:\n" ++ show b)
+parseHash :: Parser Word160
+parseHash = do
+    dict <- parseADict (match parseBValue)
+    case lookup "info" dict of
+        Nothing -> empty
+        Just (bytes, _) -> return . hash $ B.unpack bytes
 
 ----------------------------------------
--- MISC
+-- WRITERS
 ----------------------------------------
 
-leekup :: Show a => String -> [(String, a)] -> Either String a
-leekup key dict = case lookup key dict of
-    Just val -> Right val
-    Nothing -> Left ("Could not find key \"" ++ key ++ "\" in the following BDict:\n" ++ show dict)
+writeBValue :: BValue -> B.ByteString
+writeBValue (BString bytes) = C.pack (show (B.length bytes) ++ ":") `B.append` bytes
+writeBValue (BInt n) = surround 'i' . C.pack $ show n
+writeBValue (BList bvals) = surround 'l' . B.concat $ map writeBValue bvals
+writeBValue (BDict assocs) = surround 'd' $ B.concat
+    [ C.pack (show (length key) ++ ':' : key) `B.append` writeBValue bval
+    | (key, bval) <- assocs
+    ]
+
+surround :: Char -> B.ByteString -> B.ByteString
+surround = (.) (`C.snoc` 'e') . C.cons
+
+----------------------------------------
+-- TEMPLATE HASKELL
+----------------------------------------
+
+makePrisms ''BValue

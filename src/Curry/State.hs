@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Curry.Types
     ( Env(..)
     , Config(..)
@@ -22,17 +24,11 @@ import           Curry.Parsers.PWP
 import           Curry.Parsers.THP
 import           Curry.Parsers.Torrent
 
-import           Control.Applicative
-import           Control.Concurrent.Chan
-import           Control.Concurrent.MVar
 import           Control.Concurrent.STM
-import           Control.Monad
-import           Control.Monad.Reader
+import           Control.Lens
 import qualified Data.ByteString as B
-import qualified Data.Sequence as S
 import qualified Data.Map as M
 import           Data.UnixTime
-import           Network.Socket
 
 ----------------------------------------
 -- GENERAL STATE TYPES
@@ -40,25 +36,25 @@ import           Network.Socket
 
 -- Overall download environment
 data Env = Env
-    { config    :: Config
-    , whoami    :: Addr
-    , ourId     :: B.ByteString
-    , ourKey    :: B.ByteString
-    , metaInfo  :: MetaInfo
-    , peers     :: TVar [Peer]
-    , progress  :: TVar PieceMap
-    , gives     :: TShan ((Chunk B.ByteString), Peer)
-    , takes     :: TShan ((Chunk Integer     ), Peer)
-    , sayChan   :: TChan String
+    { _config    :: Config
+    , _whoami    :: Addr
+    , _ourId     :: B.ByteString
+    , _ourKey    :: B.ByteString
+    , _metaInfo  :: MetaInfo
+    , _peers     :: TVar [Peer]
+    , _progress  :: TVar PieceMap
+    , _gives     :: TShan ((Chunk B.ByteString), Peer)
+    , _takes     :: TShan ((Chunk Integer     ), Peer)
+    , _sayChan   :: TChan String
     } deriving Show
 
 -- General static settings
 data Config = Config
-    { maxSend  :: Int
-    , maxRecv  :: Int
-    , minPeers :: Int
-    , maxPeers :: Int
-    , myCtxt   :: Context
+    { _maxSend  :: Int
+    , _maxRecv  :: Int
+    , _minPeers :: Int
+    , _maxPeers :: Int
+    , _myCtxt   :: Context
     } deriving Show
 
 -- Information about a specific peer.
@@ -67,9 +63,9 @@ data Config = Config
 --      Mutable and persistant
 --      Mutable and temporary
 data Peer = Peer
-    { addr   :: Addr
-    , hist   :: TVar Hist
-    , pear   :: TMVar Pear
+    { _addr   :: Addr
+    , _hist   :: TVar Hist
+    , _pear   :: TMVar Pear
     } deriving Show
 
 -- Peers should be unique with respect to address
@@ -77,24 +73,24 @@ instance Eq Peer where
     a == b = addr a == addr b
 
 data Hist = Hist
-    { up   :: Integer
-    , down :: Integer
+    { _up   :: Integer
+    , _down :: Integer
     } deriving Show
 
 data Pear = Pear
-    { has     :: PieceMap
-    , status  :: Status
-    , lastMsg :: UnixTime
-    , context :: Context
-    , to      :: Queue Message
-    , from    :: Queue Message
+    { _context :: Context
+    , _status  :: Status
+    , _has     :: PieceMap
+    , _lastMsg :: UnixTime
+    , _toQ     :: Queue Message
+    , _fromQ   :: Queue Message
     } deriving Show
 
 data Status = Status
-    { choked      :: Bool
-    , choking     :: Bool
-    , interesting :: Bool
-    , interested  :: Bool
+    { _choked      :: Bool
+    , _choking     :: Bool
+    , _interesting :: Bool
+    , _interested  :: Bool
     } deriving Show
 
 data Queue a = Queue [a] [a]
@@ -147,12 +143,6 @@ rmv x [] = (True, [])
 clump x (y, xs) = (y, x:xs)
 
 ----------------------------------------
--- OPERATIONS
+-- CETERA
 ----------------------------------------
 
-opHas          f s = s { has         = f (has s) }
-setChoked      x s = s { choked      = x         }
-setInteresting x s = s { interesting = x         }
-
-addUp   n h = h { up   = (up   h) + n }
-addDown n h = h { down = (down h) + n }

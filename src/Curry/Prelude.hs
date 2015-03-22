@@ -1,74 +1,34 @@
-{-# LANGUAGE RecordWildCards, FlexibleInstances, DeriveDataTypeable#-}
+{-# LANGUAGE DeriveDataTypeable#-}
 
-module Curry.Common
+module Curry.Prelude
     ( PieceMap
     , Chunk(..)
+    , Chunkable(..)
     , Addr(..)
     , Noitpecxe(..)
+    --
     , modifyTMVar
     , extract
     , eitherToMaybe
     , maybeToEither
-    , (-=-)
+    --
     , (<%>)
     , (<+>)
-    --
-    -- , ChuteIn
-    -- , ChuteOut
-    -- , newChute
-    -- , putChute
-    -- , takeChute
-    -- , MCtrl
-    -- , MView
-    -- , newMSplit
-    -- , modifyMCtrl
-    -- , readMView
-    -- , CountCtrl
-    -- , CountView
-    -- , newCount
-    -- , addCount
-    -- , readCount
-    --
     ) where
 
 import qualified Data.ByteString as B
 import           Data.Typeable
 import qualified Data.Map as M
+import           Data.Word
 import           Control.Applicative
-import           Control.Concurrent.Chan
 import           Control.Concurrent.STM
 import           Control.Exception
-import           Control.Monad
 
 ----------------------------------------
--- TYPES
+-- MISC
 ----------------------------------------
 
-type PieceMap = M.Map Integer Bool
-
--- Information about a part of a piece
-data Chunk a = Chunk
-    { index :: Integer
-    , start :: Integer
-    , body  :: a
-    } deriving (Show, Ord)
-
-instance Functor Chunk where
-    fmap f (Chunk i s b) = Chunk i s (f b)
-
-instance Chunkable a => Eq (Chunk a) where
-    x == y =  index x == index y
-           && start x == start y
-           && body x -=- body y
-
-class Chunkable a where
-    (-=-) :: Chunkable a => a -> a -> Bool
-
-instance Chunkable Integer where
-    (-=-) = (==)
-
-instance Chunkable B.ByteString where
-    x -=- y = B.length x == B.length y
+type PieceMap = M.Map Word32 Bool
 
 data Addr = Addr
     { addrIp   :: String
@@ -113,11 +73,38 @@ _ <+> r@(Right _) = r
 _ <+> l@(Left  _) = l
 
 ----------------------------------------
--- CETERA
+-- CHUNKS
 ----------------------------------------
 
--- To allow types with MVars and TVars to allow show (which will only be
--- used for debugging)
+-- Information about a part of a piece
+data Chunk a = Chunk
+    { index :: Word32
+    , start :: Word32
+    , body  :: a
+    } deriving (Show, Ord)
+
+instance Functor Chunk where
+    fmap f (Chunk i s b) = Chunk i s (f b)
+
+instance Chunkable a => Eq (Chunk a) where
+    x == y =  index x == index y
+           && start x == start y
+           && body x -=- body y
+
+class Chunkable a where
+    (-=-) :: Chunkable a => a -> a -> Bool
+
+instance Chunkable Word32 where
+    (-=-) = (==)
+
+instance Chunkable B.ByteString where
+    x -=- y = B.length x == B.length y
+
+----------------------------------------
+-- DEBUGGING
+----------------------------------------
+
+-- To allow STM types to instantiate show (which will only be used for debugging)
 
 instance Show (TVar a) where
     show _ = "(a tvar exists here)"
@@ -127,6 +114,3 @@ instance Show (TMVar a) where
 
 instance Show (TChan a) where
     show _ = "(a tchan exists here)"
-
-instance Show (Chan a) where
-    show _ = "(a chan exists here)"

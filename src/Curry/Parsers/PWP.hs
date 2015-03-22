@@ -3,165 +3,176 @@
 module Curry.Parsers.PWP
     ( Handshake(..)
     , Message(..)
+    , ExtMsg
     , Context(..)
     , parseShake
     , parseMsg
-    , mkShake
-    , mkMsg
-    , checkMsg
-    , merge
+    , writeShake
+    , writeMsg
     ) where
 
-import           Curry.Common
+import           Curry.Prelude
+import           Curry.Parsers.Bencode
+import           Curry.Parsers.Word
 
 import           Control.Applicative
 import           Data.Attoparsec.ByteString
-import           Data.Attoparsec.ByteString.Char8 (anyChar)
-import qualified Data.Attoparsec.ByteString.Lazy as AL
+import           Data.Attoparsec.ByteString.Char8 (anyChar, string)
 import           Data.Bits
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
-import qualified Data.ByteString.Lazy as L
 import           Data.List hiding (take)
 import           Data.List.Split
 import qualified Data.Map as M
 import           Data.Word
 import           Prelude hiding (take)
-import           System.IO.Unsafe
 
 ----------------------------------------
 -- TYPES
 ----------------------------------------
 
 data Handshake = Handshake
-    { protocol :: String
-    , someCtxt :: Context
-    , someHash :: B.ByteString
-    , someId   :: B.ByteString
+    { someCtxt :: Context
+    , someHash :: Word160
+    , someId   :: Word160
     } deriving Show
 
 instance Eq Handshake where
-    a == b = protocol a == protocol b && someHash a == someHash b
+    a == b = someHash a == someHash b
 
 -- Not currenty implemented
-data Context = Context deriving Show
-    -- { dht :: Bool
-    -- , utp :: Bool
-    -- , etc.
-    -- }
+data Context = Context
+    { extprot :: Bool
+    } deriving Show
 
 data Message = Keepalive
              | Choke
              | Unchoke
              | Interested
              | Bored
-             | Have Integer
-             | Bitfield (M.Map Integer Bool)
-             | Request (Chunk Integer)
+             | Have Word32
+             | Bitfield PieceMap
+             | Request (Chunk Word32)
              | Piece (Chunk B.ByteString)
-             | Cancel (Chunk Integer)
+             | Cancel (Chunk Word32)
+             | Extended ExtMsg
              deriving Show
+
+data ExtMsg = ExtShake BDict
+            deriving Show
 
 ----------------------------------------
 -- PARSERS
 ----------------------------------------
 
-parseShake = Handshake <$> (anyWord8 >>= ((`count` anyChar) . fromIntegral))
-                       <*> fmap ctxt (take 8)
-                       <*> take 20
-                       <*> take 20
+parseShake :: Parser Handshake
+parseShake = word8 19 *> string "BitTorrent Protocl" *>
+             Handshake <$> (fmap fromIntegral anyWord8 >>= flip count anyChar)
+                       <*> readCtxt <$> take 8
+                       <*> parse160
+                       <*> parse160
 
-ctxt :: B.ByteString -> Context
-ctxt _ = Context
+readCtxt :: B.ByteString -> Context
+readCtxt bytes = Context { extprot = index bytes 5 `testBit` 10
+                         }
 
 -- This is sorta lame
-parseMsg = do
-    len <- parseInt
+parseMsg :: Context -> Context -> Parser Message
+parseMsg us them = do
+    len <- parse32
     rest <- take $ fromInteger len
-    -- unsafePerformIO $ print (maybeResult $ parse takeByteString rest) >> return (return ())
-    case maybeResult (feed (parse parseBody rest) B.empty) of
-        Nothing -> fail "done"
+    case maybeResult $ parse (parseBody us them) rest `feed` B.empty of
+        Nothing -> empty
         Just msg -> return msg
 
--- parse a 4-byte big-endian integer
-parseInt = (sum . zipWith (*) (iterate (* 256) 1) . map fromIntegral . reverse . B.unpack) <$> take 4
+parseBody :: Context -> Context -> Parser Message
+parseBody us them = endOfInput *> return Keepalive <|> do
+    msgId <- anyWord8
+    case msgId of
+        0  -> return Choke
+        1  -> return Unchoke
+        2  -> return Interested
+        3  -> return Bored
+        4  -> Have <$> parse32
+        5  -> Bitfield <$> readBitField <$> takeByteString
+        6  -> liftA3 (((Request .).) . Chunk) parse32 parse32 parse32
+        7  -> liftA3 (((Piece   .).) . Chunk) parse32 parse32 takeByteString
+        8  -> liftA3 (((Cancel  .).) . Chunk) parse32 parse32 parse32
+        20 -> perhaps (extprot $ extprot us && extprot them) $ Extended <$> parseExt us them
+        _  -> empty
 
-parseBody = endOfInput *> return Keepalive <|> do
-    msgID <- anyWord8
-    case msgID of
-        0 -> return Choke
-        1 -> return Unchoke
-        2 -> return Interested
-        3 -> return Bored
-        4 -> Have <$> parseInt
-        5 -> (Bitfield . unBitField) <$> takeByteString
-        6 -> liftA3 (((Request .).) . Chunk) parseInt parseInt parseInt
-        7 -> liftA3 (((Piece   .).) . Chunk) parseInt parseInt takeByteString
-        8 -> liftA3 (((Cancel  .).) . Chunk) parseInt parseInt parseInt
+parseExt :: Context -> Context -> Parser ExtMsg
+parseExt us them = do
+    msgId <- anyWord8
+    case msgId of
+        0 -> ExtShake <$> parseBDict
+        _ -> empty
 
 ----------------------------------------
 -- MAKERS
 ----------------------------------------
 
-mkShake :: Handshake -> B.ByteString
-mkShake Handshake{..} = B.singleton 19 `B.append` C.pack protocol
-                                       `B.append` context'
-                                       `B.append` someHash
-                                       `B.append` someId
-  where context' = B.pack $ replicate 8 0
+writeShake :: Handshake -> B.ByteString
+writeShake Handshake{..} = (19 `B.cons` C.pack "BitTorrent Protocol")
+    `B.append` writeCtxt someCtxt
+    `B.append` write160 someHash
+    `B.append` write160 someId
+
+writeCtxt :: Context -> B.ByteString
+writeCtxt Context{..} = B.pack $ map (foldl setBit 0)
+    [ []
+    , []
+    , []
+    , []
+    , []
+    , [10]
+    , []
+    , []
+    ]
 
 -- Makes a lenght-prefixed message
-mkMsg :: Message -> B.ByteString
-mkMsg msg = (B.singleton . fromInteger . toInteger $ B.length body) `B.append` body
-  where body = mkBody msg
+writeMsg :: Context -> Context -> Message -> B.ByteString
+writeMsg us them msg = (write32 . fromIntegral $ B.length body) `B.append` body
+  where body = writeBody us them msg
 
--- Turn an integer into a big-endian 4-bit bytestring.
--- Oversized ints are not handled.
-mkInt :: Integer -> B.ByteString
-mkInt int = B.pack [ fromIntegral $ 255 .&. shiftR int part
-                   | part <- [24, 16, 8, 0]
-                   ]
+writeBody :: Context -> Context -> Message -> B.ByteString
 
-mkBody :: Message -> B.ByteString
+writeBody _ _ Keepalive  = B.empty
+writeBody _ _ Choke      = B.singleton 0
+writeBody _ _ Unchoke    = B.singleton 1
+writeBody _ _ Interested = B.singleton 2
+writeBody _ _ Bored      = B.singleton 3
 
-mkBody Keepalive  = B.empty
-mkBody Choke      = B.singleton 0
-mkBody Unchoke    = B.singleton 1
-mkBody Interested = B.singleton 2
-mkBody Bored      = B.singleton 3
+writeBody _ _ (Have     x) = 4 `B.cons` write32 x
+writeBody _ _ (Bitfield x) = 5 `B.cons` writeBitField x
 
-mkBody (Have     x) = 4 `B.cons` mkInt x
-mkBody (Bitfield x) = 5 `B.cons` bitField x
-
-mkBody (Request Chunk{..}) = 6 `B.cons` (B.concat . map mkInt) [index, start, body]
-mkBody (Piece   Chunk{..}) = 7 `B.cons` B.concat [mkInt index, mkInt start, body]
-mkBody (Cancel  Chunk{..}) = 8 `B.cons` (B.concat . map mkInt) [index, start, body]
+writeBody _ _ (Request Chunk{..}) = 6 `B.cons` (B.concat . map write32) [index, start, body]
+writeBody _ _ (Piece   Chunk{..}) = 7 `B.cons` B.concat [write32 index, write32 start, body]
+writeBody _ _ (Cancel  Chunk{..}) = 8 `B.cons` (B.concat . map write32) [index, start, body]
 
 ----------------------------------------
 -- UTILS (will grow with Context)
 ----------------------------------------
 
-checkMsg :: Context -> Message -> Either String Message
-checkMsg _ msg = Right msg
-
-merge :: Context -> Context -> Context
-merge _ = id
+perhaps :: Bool -> Parser a -> Parser a
+perhaps True p = p
+perhaps False _ = empty
 
 ----------------------------------------
 -- HELPERS
 ----------------------------------------
 
-bitField :: M.Map Integer Bool -> B.ByteString
-bitField = B.pack . unBitList . map snd . M.toList
+writeBitField :: PieceMap -> B.ByteString
+writeBitField = B.pack . unMkBitList . map snd . M.toList
 
-unBitField :: B.ByteString -> M.Map Integer Bool
-unBitField bits = M.fromList . zip [0..] . concatMap bitList $ B.unpack bits
+readBitField :: B.ByteString -> PieceMap
+readBitField bits = M.fromList . zip [0..] . concatMap mkBitList $ B.unpack bits
 
-bitList :: Word8 -> [Bool]
-bitList w = map (testBit w) [7,6..0] -- right?
+mkBitList :: Word8 -> [Bool]
+mkBitList w = map (testBit w) [7,6..0] -- right?
 
-unBitList :: [Bool] -> [Word8]
-unBitList = map ( foldl (.|.) 0
+unMkBitList :: [Bool] -> [Word8]
+unMkBitList = map ( foldl (.|.) 0
                 . map (bit . fst)
                 . filter snd
                 . zip [7, 6..]
