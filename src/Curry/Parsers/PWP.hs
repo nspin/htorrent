@@ -78,12 +78,7 @@ readCtxt bytes = Context { extprot = index bytes 5 `testBit` 10
 
 -- This is sorta lame
 parseMsg :: Context -> Context -> Parser Message
-parseMsg us them = do
-    len <- parse32
-    rest <- take $ fromInteger len
-    case maybeResult $ parse (parseBody us them) rest `feed` B.empty of
-        Nothing -> empty
-        Just msg -> return msg
+parseMsg us them = parse32 >>= (take . fromInteger) >>= (mkParser . mkReader)
 
 parseBody :: Context -> Context -> Parser Message
 parseBody us them = endOfInput *> return Keepalive <|> do
@@ -151,14 +146,6 @@ writeBody _ _ (Piece   Chunk{..}) = 7 `B.cons` B.concat [write32 index, write32 
 writeBody _ _ (Cancel  Chunk{..}) = 8 `B.cons` (B.concat . map write32) [index, start, body]
 
 ----------------------------------------
--- UTILS (will grow with Context)
-----------------------------------------
-
-perhaps :: Bool -> Parser a -> Parser a
-perhaps True p = p
-perhaps False _ = empty
-
-----------------------------------------
 -- HELPERS
 ----------------------------------------
 
@@ -177,3 +164,9 @@ unMkBitList = map ( foldl (.|.) 0
                 . filter snd
                 . zip [7, 6..]
                 ) . chunksOf 8
+
+----------------------------------------
+-- CETERA
+----------------------------------------
+
+merge 

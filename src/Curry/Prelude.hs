@@ -2,18 +2,23 @@
 
 module Curry.Prelude
     ( PieceMap
-    , Chunk(..)
-    , Chunkable(..)
     , Addr(..)
     , Noitpecxe(..)
     --
-    , modifyTMVar
-    , extract
+    , mkReader
+    , mkParser
+    , perhaps
+    --
     , eitherToMaybe
     , maybeToEither
+    , extract
+    , modifyTMVar
     --
     , (<%>)
     , (<+>)
+    --
+    , Chunk(..)
+    , Chunkable(..)
     ) where
 
 import qualified Data.ByteString as B
@@ -25,7 +30,7 @@ import           Control.Concurrent.STM
 import           Control.Exception
 
 ----------------------------------------
--- MISC
+-- TYPES
 ----------------------------------------
 
 type PieceMap = M.Map Word32 Bool
@@ -40,11 +45,26 @@ data Noitpecxe = Noitpecxe String deriving (Show, Typeable)
 instance Exception Noitpecxe
 
 ----------------------------------------
--- UTILS
+-- PARSER UTILS
 ----------------------------------------
 
-modifyTMVar :: TMVar a -> (a -> a) -> STM ()
-modifyTMVar v f = takeTMVar v >>= (putTMVar v . f)
+mkReader :: Parser a -> B.ByteString -> Maybe a
+mkReader parser bytes = case parse parser bytes `feed` B.empty of
+    Done i r -> if null i then Just r else Nothing
+    _ -> Nothing
+
+mkParser :: (B.ByteString -> Maybe a) -> B.ByteString -> Parser a
+mkParser reader bytes = case reader bytes of
+    Just x -> return x
+    Nothing -> empty
+
+perhaps :: Bool -> Parser a -> Parser a
+perhaps True  p = p
+perhaps False _ = empty
+
+----------------------------------------
+-- MISC UTILS
+----------------------------------------
 
 extract :: (a -> Either String b) -> a -> IO b
 extract f x = case f x of
@@ -58,6 +78,13 @@ maybeToEither s Nothing  = Left s
 eitherToMaybe :: Either a b -> Maybe b
 eitherToMaybe (Right x) = Just x
 eitherToMaybe (Left  _) = Nothing
+
+modifyTMVar :: TMVar a -> (a -> a) -> STM ()
+modifyTMVar v f = takeTMVar v >>= (putTMVar v . f)
+
+----------------------------------------
+-- INFIX UTILS
+----------------------------------------
 
 infixl 1 <%>
 (<%>) :: Applicative f => f (a -> b) -> a -> f b
