@@ -1,13 +1,9 @@
 {-# LANGUAGE DeriveDataTypeable#-}
 
-module Curry.Prelude
+module Curry.Common
     ( PieceMap
     , Addr(..)
     , Noitpecxe(..)
-    --
-    , mkReader
-    , mkParser
-    , perhaps
     --
     , eitherToMaybe
     , maybeToEither
@@ -43,24 +39,6 @@ data Addr = Addr
 data Noitpecxe = Noitpecxe String deriving (Show, Typeable)
 
 instance Exception Noitpecxe
-
-----------------------------------------
--- PARSER UTILS
-----------------------------------------
-
-mkReader :: Parser a -> B.ByteString -> Maybe a
-mkReader parser bytes = case parse parser bytes `feed` B.empty of
-    Done i r -> if null i then Just r else Nothing
-    _ -> Nothing
-
-mkParser :: (B.ByteString -> Maybe a) -> B.ByteString -> Parser a
-mkParser reader bytes = case reader bytes of
-    Just x -> return x
-    Nothing -> empty
-
-perhaps :: Bool -> Parser a -> Parser a
-perhaps True  p = p
-perhaps False _ = empty
 
 ----------------------------------------
 -- MISC UTILS

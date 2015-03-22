@@ -1,6 +1,50 @@
 {-# LANGUAGE TemplateHaskell, RecordWildCards, FlexibleInstances #-}
 
-module Curry.Parsers.Torrent where
+module Curry.Parsers.Torrent
+    (
+
+      Magnet(..)
+    , infoHash
+    , display
+    , tracker
+
+    , Torrent(..)
+    , infoHash
+    , source
+    , funfo
+    , infoDict
+
+    , Source(..)
+    , _Announce
+    , _Announces
+    , _Nodes
+
+    , Info(..)
+    , private
+    , pieces
+    , pieceLen
+    , fileDesc
+
+    , Files(..)
+    , _One
+    , _Many
+
+    , File(..)
+    , name
+    , len
+    , md5sum
+
+    , Funfo(..)
+    , comment
+    , creator
+    , birthday
+
+    --
+
+    , readMagnet
+    , readTorrent
+
+    ) where
 
 import           Curry.Common
 import           Curry.Parsers.Bencode
@@ -58,15 +102,14 @@ data Funfo = Funfo
     } deriving Show
 
 ----------------------------------------
--- TEMPLATE HASKELL
+-- READERS
 ----------------------------------------
 
-makeLenses ''Meta
-makePrisms ''Source
-makeLenses ''Info
-makePrisms ''Files
-makeLenses ''File
-makeLenses ''MetaMeta
+readMagnet :: String -> Maybe Magnet
+
+readTorrent :: B.ByteString -> Maybe Torrent
+readTorrent bytes = do
+    dict <- mkReader parseBDict bytes
 
 ----------------------------------------
 -- GETTERS
@@ -129,3 +172,15 @@ getInfo = getDict >=> \info -> do
         pieceLen
         pieces
         fileDesc
+
+----------------------------------------
+-- TEMPLATE HASKELL
+----------------------------------------
+
+makeLenses ''Magnet
+makeLenses ''Torrent
+makePrisms ''Source
+makeLenses ''Info
+makePrisms ''Files
+makeLenses ''File
+makeLenses ''Funfo
