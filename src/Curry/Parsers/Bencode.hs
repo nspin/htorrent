@@ -7,10 +7,6 @@ module Curry.Parsers.Bencode
     , _BList
     , _BDict
     , parseBValue
-    , parseBString
-    , parseBInt
-    , parseBList
-    , parseBDict
     , readInfoHash
     , writeBValue
     ) where
@@ -47,28 +43,15 @@ data BValue = BString B.ByteString
 -- Parse a Bencoded value
 parseBValue :: Parser BValue
 parseBValue =  BString <$> parseBString
-           <|> BInt    <$> parseBInt
-           <|> BList   <$> parseBList
-           <|> BDict   <$> parseBDict
+           <|> BInt    <$> parseMid 'i' (signed decimal)
+           <|> BList   <$> parseMid 'l' (many' parseBValue)
+           <|> BDict   <$> parseADict parseBValue
 
--- Parse a Bencoded string
 parseBString :: Parser B.ByteString
 parseBString = decimal <* char ':' >>= take
 
--- Parse a Bencoded integer
-parseBInt :: Parser Integer
-parseBInt = parseMid 'i' $ signed decimal
-
--- Parse a Bencoded list
-parseBList :: Parser [BValue]
-parseBList = parseMid 'l' $ many' parseBValue
-
--- Parse a Bencoded dictionary
-parseBDict :: Parser [(String, BValue)]
-parseBDict = parseADict parseBValue
-
--- Parse a list of (key,value)'s according to a parser for values
--- (generalized because used both in parseBVal and rawDict)
+-- Parse a list of (key, value)'s according to a parser for values
+-- (generalized because used both in parseBVal and readInfoHash)
 parseADict :: Parser a -> Parser [(String, a)]
 parseADict = parseMid 'd' . many1 . liftA2 (,) (C.unpack <$> parseBString)
 

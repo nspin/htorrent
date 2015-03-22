@@ -55,6 +55,7 @@ data Message = Keepalive
              | Request (Chunk Word32)
              | Piece (Chunk B.ByteString)
              | Cancel (Chunk Word32)
+             | Port Word16
              | Extended ExtMsg
              deriving Show
 
@@ -78,7 +79,7 @@ readCtxt bytes = Context { extprot = index bytes 5 `testBit` 10
 
 -- This is sorta lame
 parseMsg :: Context -> Context -> Parser Message
-parseMsg us them = parse32 >>= (take . fromInteger) >>= (mkParser . mkReader)
+parseMsg us them = mkReader parseBody <$?> (parse32 >>= (take . fromInteger))
 
 parseBody :: Context -> Context -> Parser Message
 parseBody us them = endOfInput *> return Keepalive <|> do
@@ -169,4 +170,4 @@ unMkBitList = map ( foldl (.|.) 0
 -- CETERA
 ----------------------------------------
 
-merge 
+merge
