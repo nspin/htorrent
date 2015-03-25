@@ -32,7 +32,7 @@ import           Control.Exception
 
 type PieceMap = M.Map Word32 Bool
 
-type LameAddr = (String, String) -- addr, port
+type LameAddr = (String, Word16) -- addr, port
 
 data Addr = Addr
     { addrIp   :: String

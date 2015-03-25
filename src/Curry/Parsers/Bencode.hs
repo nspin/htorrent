@@ -3,18 +3,18 @@
 module Curry.Parsers.Bencode
     ( BValue(..)
   --
-    , _BString
-    , _BInt
-    , _BList
-    , _BDict
+    -- , _BString
+    -- , _BInt
+    -- , _BList
+    -- , _BDict
   --
-    , bString
-    , bInt
-    , bList
-    , bDict
+    , getString
+    , getInt
+    , getList
+    , getDict
   --
     , parseBValue
-    , readInfoHash
+    , readHash
     , writeBValue
     ) where
 
@@ -71,8 +71,8 @@ parseMid start middle = char start *> middle <* char 'e'
 ----------------------------------------
 
 -- Extract raw bytestring of info key (if it exists), and calculate infohash
-readInfoHash :: B.ByteString -> Maybe Word160
-readInfoHash = fmap (hash . B.unpack . fst)
+readHash :: B.ByteString -> Maybe Word160
+readHash = fmap (hash . B.unpack . fst)
              . (mkReader (parseADict (match parseBValue)) >=> lookup "info")
 
 ----------------------------------------
@@ -92,13 +92,27 @@ surround :: Char -> B.ByteString -> B.ByteString
 surround = (.) (`C.snoc` 'e') . C.cons
 
 ----------------------------------------
+-- GETTERS (Only here until I lean more about lenses)
+----------------------------------------
+
+getString :: BValue -> Maybe B.ByteString
+getString (BString x) = Just x
+getString _ = Nothing
+
+getInt :: BValue -> Maybe Integer
+getInt (BInt x) = Just x
+getInt _ = Nothing
+
+getList :: BValue -> Maybe [BValue]
+getList (BList x) = Just x
+getList _ = Nothing
+
+getDict :: BValue -> Maybe [(String, BValue)]
+getDict (BDict x) = Just x
+getDict _ = Nothing
+
+----------------------------------------
 -- TEMPLATE HASKELL
 ----------------------------------------
 
-makePrisms ''BValue
-
--- Only here until I lean more about lenses
-bString = (^? _BString)
-bInt    = (^? _BInt   )
-bList   = (^? _BList  )
-bDict   = (^? _BDict  )
+-- makePrisms ''BValue

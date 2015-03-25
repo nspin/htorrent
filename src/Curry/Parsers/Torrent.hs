@@ -36,12 +36,15 @@ module Curry.Parsers.Torrent
 
     --
 
+    , readInfo
     , readTorrent
 
     ) where
 
 import           Curry.Common
 import           Curry.Parsers.Bencode
+import           Curry.Parsers.Common
+import           Curry.Parsers.Word
 
 import           Control.Applicative
 import           Control.Lens
@@ -57,7 +60,7 @@ import           Data.Maybe
 ----------------------------------------
 
 data Torrent = Torrent
-    { _infoHash :: Word169
+    { _infoHash :: Word160
     , _source   :: Source
     , _funfo    :: Funfo
     , _infoDict :: Info
@@ -96,29 +99,48 @@ data Funfo = Funfo
 ----------------------------------------
 
 readInfo :: BValue -> Maybe Info
-readInfo x = do
+readInfo = getDict >=> \dict ->
 
-    dict <- bDict x
-
-    let one = fmap One $ FileInfo
-                  <$> fmap C.unpack (dict ^? at "name" . _BString)
-                  <*> (dict ^? at "length" . _BInt)
-                  <%> (dict ^? at "md5sum" . _BString)
+    let one = fmap One $ file (fmap C.unpack . (lookup "name" >=> getString)) dict
 
         many = Many
-            <$> fmap C.unpack (dict ^? "name" . _BString)
-            <*> ( (dict ^? at "files" . getList)
-              >>= mapM ( getDict >=> \file -> FileInfo
-                      <$> ((file ^? at "path" . _BList) >>= mapM (fmap C.unpack . (^? _BString)))
-                      <*> (file ^? at "length" . _BInt)
-                      <%> (file ^? at "md5sum" . _BString)
-                       )
+            <$> fmap C.unpack (lookup "name" dict >>= getString)
+            <*> ( lookup "files" dict >>= getList >>= mapM
+                    ( getDict >=> file ( lookup "path" >=> getList
+                                            >=> mapM (fmap C.unpack . getString)
+                                       )
+                    )
                 )
 
-    Info (maybe False (== 1) (dict ^. at "private" . _BInt))
-        <$> (dict >>= lookup "piece length" >>= bInt)
-        <*> (dict >>= lookup "pieces" >>= bString >>= mkReader (many' parse160))
+        file :: ([(String, BValue)] -> Maybe a) -> [(String, BValue)] -> Maybe (File a)
+        file f x = File <$> f x
+                        <*> (lookup "length" x >>= getInt) 
+                        <%> (lookup "md5sum" x >>= getString >>= mkReader parse128)
+
+    in Info (maybe False (== 1) (lookup "private" dict >>= getInt))
+        <$> (lookup "piece length" dict >>= getInt)
+        <*> (lookup "pieces" dict >>= getString >>= mkReader (many' parse160))
         <*> mplus one many
+
+readTorrent :: B.ByteString -> Maybe Torrent
+readTorrent bytes = do
+    bval <- mkReader parseBValue bytes
+    dict <- getDict bval
+    Torrent <$> readHash bytes
+            <*> (fmap (Nodes . map (\(x, y) -> (C.unpack x, fromInteger y))) $
+                    lookup "nodes" dict >>= getList >>= mapM (getList >=> \l -> case l of
+                        [a, b] -> liftA2 (,) (a >>= getString) (b >>= getInt)
+                        _ -> Nothing)) `mplus`
+                (fmap (Announces . map . map C.unpack) $
+                    lookup "announce list" dict >>= getList >>= mapM getList) `mplus`
+                (fmap (Announce . C.unpack) $
+                    lookup "announce" dict >>= getString)
+            <*> pure ( Funfo (fmap C.unpack $ lookup "comment" dict >>= getString)
+                             (fmap C.unpack $ lookup "created by" dict >>= getString)
+                             (fmap C.unpack $ lookup "creation date" dict >>= getString)
+                     )
+            <*> readInfo bval
+
 
 -- ----------------------------------------
 -- -- GETTERS
