@@ -2,6 +2,7 @@
 
 module Curry.Common
     ( PieceMap
+    , LameAddr
     , Addr(..)
     , Noitpecxe(..)
     --
@@ -30,6 +31,8 @@ import           Control.Exception
 ----------------------------------------
 
 type PieceMap = M.Map Word32 Bool
+
+type LameAddr = (String, String) -- addr, port
 
 data Addr = Addr
     { addrIp   :: String

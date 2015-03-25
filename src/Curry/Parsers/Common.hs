@@ -14,7 +14,7 @@ import qualified Data.ByteString as B
 
 infixl 4 <$?>
 
--- Fmap that can fail
+-- fmap that can fail
 (<$?>) :: (Alternative m, Monad m) => (a -> Maybe b) -> m a -> m b
 f <$?> m = do
     x <- m

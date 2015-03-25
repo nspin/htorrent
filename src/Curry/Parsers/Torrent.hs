@@ -3,11 +3,6 @@
 module Curry.Parsers.Torrent
     (
 
-      Magnet(..)
-    , infoHash
-    , display
-    , tracker
-
     , Torrent(..)
     , infoHash
     , source
@@ -41,7 +36,6 @@ module Curry.Parsers.Torrent
 
     --
 
-    , readMagnet
     , readTorrent
 
     ) where
@@ -62,14 +56,8 @@ import           Data.Maybe
 -- TYPES
 ----------------------------------------
 
-data Magnet = Magnet
-    { _infoHash :: B.ByteString
-    , _display  :: String
-    , _tracker  :: String
-    } deriving Show
-
 data Torrent = Torrent
-    { _infoHash :: B.ByteString
+    { _infoHash :: Wird169
     , _source   :: Source
     , _funfo    :: MetaMeta
     , _infoDict :: Info
@@ -77,22 +65,24 @@ data Torrent = Torrent
 
 data Source = Announce String
             | Announces [[String]]
-            | Nodes [Addr]
+            | Nodes [LameAddr] --> 
             deriving Show
 
 data Info = Info
     { _private  :: Bool
-    , _pieces   :: [B.ByteString]
+    , _pieces   :: [Word160]
     , _pieceLen :: Integer
     , _fileDesc :: Files
     } deriving Show
 
-data Files = One (File String) | Many String [File [String]] deriving Show
+data Files = One { file :: (File String) }
+           | Many { root :: String, files :: [File [String]] }
+           deriving Show
 
 data File a = File
     { _name   :: a
     , _len    :: Integer
-    , _md5sum :: Maybe B.ByteString
+    , _md5sum :: Maybe Word128
     } deriving Show
 
 data Funfo = Funfo
@@ -104,8 +94,6 @@ data Funfo = Funfo
 ----------------------------------------
 -- READERS
 ----------------------------------------
-
-readMagnet :: String -> Maybe Magnet
 
 readTorrent :: B.ByteString -> Maybe Torrent
 readTorrent bytes = do
@@ -177,7 +165,6 @@ getInfo = getDict >=> \info -> do
 -- TEMPLATE HASKELL
 ----------------------------------------
 
-makeLenses ''Magnet
 makeLenses ''Torrent
 makePrisms ''Source
 makeLenses ''Info
