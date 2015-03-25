@@ -4,6 +4,11 @@ still acid?
 ip type??
 20 byte type?
 change from Addr to SockAddr?
+------------------------
+
+USE 'atEnd' INSTEAD OF 'feed B.empty . parse'
+USE FMAP THAT CAN FAIL: <$?> :: (Monad m, Alternative m) => (a -> Maybe b) -> m a -> m b
+
 
 ---------------
 
