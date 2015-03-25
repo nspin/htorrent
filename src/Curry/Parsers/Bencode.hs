@@ -2,10 +2,17 @@
 
 module Curry.Parsers.Bencode
     ( BValue(..)
+  --
     , _BString
     , _BInt
     , _BList
     , _BDict
+  --
+    , bString
+    , bInt
+    , bList
+    , bDict
+  --
     , parseBValue
     , readInfoHash
     , writeBValue
@@ -89,3 +96,9 @@ surround = (.) (`C.snoc` 'e') . C.cons
 ----------------------------------------
 
 makePrisms ''BValue
+
+-- Only here until I lean more about lenses
+bString = (^? _BString)
+bInt    = (^? _BInt   )
+bList   = (^? _BList  )
+bDict   = (^? _BDict  )
