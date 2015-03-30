@@ -1,4 +1,4 @@
-module Network.Protocol.BitTorrent.Shawarma.Parsers.Common
+module Network.Shawarma.Parsers.Common
     ( (<$?>)
     , mkReader
     , perhaps

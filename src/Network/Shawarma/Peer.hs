@@ -1,11 +1,11 @@
 {-# LANGUAGE RecordWildCards, FlexibleInstances #-}
 
-module Network.Protocol.BitTorrent.Shawarma.Peer where
+module Network.Shawarma.Peer where
 
-import           Network.Protocol.BitTorrent.Shawarma.Common
-import           Network.Protocol.BitTorrent.Shawarma.Types
-import           Network.Protocol.BitTorrent.Shawarma.Parsers.PWP
-import           Network.Protocol.BitTorrent.Shawarma.Parsers.Torrent
+import           Network.Shawarma.Common
+import           Network.Shawarma.Types
+import           Network.Shawarma.Parsers.PWP
+import           Network.Shawarma.Parsers.Torrent
 
 import           Control.Applicative
 import           Control.Concurrent

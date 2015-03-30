@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards, FlexibleInstances #-}
 
-module Network.Protocol.BitTorrent.Shawarma.Parsers.PWP
+module Network.Shawarma.Parsers.PWP
     ( Handshake(..)
     , Message(..)
     , ExtMsg
@@ -11,9 +11,9 @@ module Network.Protocol.BitTorrent.Shawarma.Parsers.PWP
     , writeMsg
     ) where
 
-import           Network.Protocol.BitTorrent.Shawarma.Prelude
-import           Network.Protocol.BitTorrent.Shawarma.Parsers.Bencode
-import           Network.Protocol.BitTorrent.Shawarma.Parsers.Word
+import           Network.Shawarma.Prelude
+import           Network.Shawarma.Parsers.Bencode
+import           Network.Shawarma.Parsers.Word
 
 import           Control.Applicative
 import           Data.Attoparsec.ByteString
