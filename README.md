@@ -1,4 +1,4 @@
-# curry
+# shawarma
 A minimalistic, cross-platform BitTorrent client written in Haskell
 
 No decisions have been made about the frontend yet.
