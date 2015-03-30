@@ -1,11 +1,11 @@
 {-# LANGUAGE RecordWildCards, FlexibleInstances #-}
 
-module Curry.Peer where
+module Network.Protocol.BitTorrent.Shawarma.Peer where
 
-import           Curry.Common
-import           Curry.Types
-import           Curry.Parsers.PWP
-import           Curry.Parsers.Torrent
+import           Network.Protocol.BitTorrent.Shawarma.Common
+import           Network.Protocol.BitTorrent.Shawarma.Types
+import           Network.Protocol.BitTorrent.Shawarma.Parsers.PWP
+import           Network.Protocol.BitTorrent.Shawarma.Parsers.Torrent
 
 import           Control.Applicative
 import           Control.Concurrent

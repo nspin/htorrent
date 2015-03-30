@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable#-}
 
-module Curry.Common
+module Network.Protocol.BitTorrent.Shawarma.Common
     ( PieceMap
     , LameAddr
     , Addr(..)

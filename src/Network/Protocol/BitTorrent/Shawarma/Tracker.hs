@@ -1,17 +1,17 @@
 {-# LANGUAGE RecordWildCards, TupleSections #-}
 
-module Curry.Tracker
+module Network.Protocol.BitTorrent.Shawarma.Tracker
     ( Travent(..)
     , mkURL
     , format
     ) where
 
-import           Curry.Common
-import           Curry.Types
-import           Curry.Parsers.Bencode
-import           Curry.Parsers.PWP
-import           Curry.Parsers.THP
-import           Curry.Parsers.Torrent
+import           Network.Protocol.BitTorrent.Shawarma.Common
+import           Network.Protocol.BitTorrent.Shawarma.Types
+import           Network.Protocol.BitTorrent.Shawarma.Parsers.Bencode
+import           Network.Protocol.BitTorrent.Shawarma.Parsers.PWP
+import           Network.Protocol.BitTorrent.Shawarma.Parsers.THP
+import           Network.Protocol.BitTorrent.Shawarma.Parsers.Torrent
 
 import           Control.Applicative
 import           Control.Concurrent.STM

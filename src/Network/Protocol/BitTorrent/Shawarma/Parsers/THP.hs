@@ -1,10 +1,10 @@
-module Curry.Parsers.THP
+module Network.Protocol.BitTorrent.Shawarma.Parsers.THP
     ( THPresp(..)
     , getResp
     ) where
 
-import           Curry.Common
-import           Curry.Parsers.Bencode
+import           Network.Protocol.BitTorrent.Shawarma.Common
+import           Network.Protocol.BitTorrent.Shawarma.Parsers.Bencode
 
 import           Data.Attoparsec.ByteString
 import           Data.Attoparsec.ByteString.Char8

@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Curry.Types
+module Network.Protocol.BitTorrent.Shawarma.Types
     ( Env(..)
     , Config(..)
     , Peer(..)
@@ -19,10 +19,10 @@ module Curry.Types
     , addDown
     ) where
 
-import           Curry.Common
-import           Curry.Parsers.PWP
-import           Curry.Parsers.THP
-import           Curry.Parsers.Torrent
+import           Network.Protocol.BitTorrent.Shawarma.Common
+import           Network.Protocol.BitTorrent.Shawarma.Parsers.PWP
+import           Network.Protocol.BitTorrent.Shawarma.Parsers.THP
+import           Network.Protocol.BitTorrent.Shawarma.Parsers.Torrent
 
 import           Control.Concurrent.STM
 import           Control.Lens
