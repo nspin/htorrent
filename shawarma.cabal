@@ -1,0 +1,32 @@
+name:                shawarma
+version:             0.1.0.0
+synopsis:            A minimalistic, cross-platform BitTorrent client
+-- description:         
+homepage:            https://github.com/nickspinale/shawarma.git
+license:             MIT
+license-file:        LICENSE
+author:              Nick Spinale
+maintainer:          spinalen@carleton.edu
+-- copyright:           
+category:            Network
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+executable shawarma
+  main-is:             Main.hs
+  -- other-modules:       
+  other-extensions:    RecordWildCards,
+                       FlexibleInstances,
+                       TemplateHaskell,
+                       TupleSections,
+                       DeriveDataTypeable
+  build-depends:       base >=4.6 && <4.7,
+                       stm >=2.4 && <2.5,
+                       mtl >=2.2 && <2.3,
+                       transformers >=0.4 && <0.5,
+                       bytestring >=0.10 && <0.11,
+                       containers >=0.5 && <0.6,
+                       network >=2.6 && <2.7
+  hs-source-dirs:      exe
+  default-language:    Haskell2010
