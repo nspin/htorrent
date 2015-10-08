@@ -1,10 +1,10 @@
-module Network.Parsers.THP
+module HTorrent.THP
     ( THPresp(..)
     , getResp
     ) where
 
-import           Network.Shawarma.Common
-import           Network.Shawarma.Parsers.Bencode
+import           HTorrent.Common
+import           HTorrent.Parsers.Bencode
 
 import           Data.Attoparsec.ByteString
 import           Data.Attoparsec.ByteString.Char8

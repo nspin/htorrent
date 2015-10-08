@@ -1,6 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable#-}
 
-module Network.Shawarma.Common
+module HTorrent.Common
     ( PieceMap
     , LameAddr
     , Addr(..)

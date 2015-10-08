@@ -2,7 +2,7 @@ module Main
     ( main
     ) where
 
-import Curry.Types
+import HTorrent.Types
 
 main :: IO ()
 main = undefined

@@ -2,14 +2,14 @@
 
 module Test where
 
-import           Network.Protocol.BitTorrent.Shawarma.Common
-import           Network.Protocol.BitTorrent.Shawarma.Tracker
-import           Network.Protocol.BitTorrent.Shawarma.Types
-import           Network.Protocol.BitTorrent.Shawarma.Peer
-import           Network.Protocol.BitTorrent.Shawarma.Parsers.Bencode
-import           Network.Protocol.BitTorrent.Shawarma.Parsers.PWP
-import           Network.Protocol.BitTorrent.Shawarma.Parsers.THP
-import           Network.Protocol.BitTorrent.Shawarma.Parsers.Torrent
+import           HTorrent.Common
+import           HTorrent.Tracker
+import           HTorrent.Types
+import           HTorrent.Peer
+import           HTorrent.Parsers.Bencode
+import           HTorrent.Parsers.PWP
+import           HTorrent.Parsers.THP
+import           HTorrent.Parsers.Torrent
 
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C

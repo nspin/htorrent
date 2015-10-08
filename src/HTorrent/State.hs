@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Network.Shawarma.Types
+module HTorrent.Types
     ( Env(..)
     , Config(..)
     , Peer(..)
@@ -19,10 +19,10 @@ module Network.Shawarma.Types
     , addDown
     ) where
 
-import           Network.Shawarma.Common
-import           Network.Shawarma.Parsers.PWP
-import           Network.Shawarma.Parsers.THP
-import           Network.Shawarma.Parsers.Torrent
+import           HTorrent.Common
+import           HTorrent.Parsers.PWP
+import           HTorrent.Parsers.THP
+import           HTorrent.Parsers.Torrent
 
 import           Control.Concurrent.STM
 import           Control.Lens

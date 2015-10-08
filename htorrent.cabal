@@ -1,8 +1,8 @@
-name:                shawarma
+name:                htorrent
 version:             0.1.0.0
 synopsis:            A minimalistic, cross-platform BitTorrent client
 -- description:         
-homepage:            https://github.com/nickspinale/shawarma.git
+homepage:            https://github.com/nickspinale/htorrent.git
 license:             MIT
 license-file:        LICENSE
 author:              Nick Spinale
@@ -13,7 +13,7 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-executable shawarma
+executable htorrent
   main-is:             Main.hs
   -- other-modules:       
   other-extensions:    RecordWildCards,

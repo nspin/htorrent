@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell, RecordWildCards, FlexibleInstances #-}
 
-module Network.Shawarma.Parsers.Torrent
+module HTorrent.Parsers.Torrent
     (
 
       Torrent(..)
@@ -41,10 +41,10 @@ module Network.Shawarma.Parsers.Torrent
 
     ) where
 
-import           Network.Shawarma.Common
-import           Network.Shawarma.Parsers.Bencode
-import           Network.Shawarma.Parsers.Common
-import           Network.Shawarma.Parsers.Word
+import           HTorrent.Common
+import           HTorrent.Parsers.Bencode
+import           HTorrent.Parsers.Common
+import           HTorrent.Parsers.Word
 
 import           Control.Applicative
 import           Control.Lens

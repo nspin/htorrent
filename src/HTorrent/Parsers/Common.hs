@@ -1,4 +1,4 @@
-module Network.Shawarma.Parsers.Common
+module HTorrent.Parsers.Common
     ( (<$?>)
     , mkReader
     , perhaps
